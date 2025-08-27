@@ -292,7 +292,7 @@ if (error) {
   setInventarios(data); // só atualiza se vier dados
 } else {
   console.log("Nenhum inventário encontrado, mantendo dados locais.");
-}
+};
         supabase.from('categories').select('*'),
         supabase.from('items').select('*'),
         supabase.from('weapons').select('*'),
