@@ -14,14 +14,21 @@ const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  (async () => {
-    try {
-      // ... seu código assíncrono aqui ...
-    } catch (err) {
-      console.error('Erro inesperado no IIFE:', err);
-    }
-  })();
+  async function fetchWeapons() {
+    const { data, error } = await supabase.from("weapons").select("*");
+    console.log("WEAPONS DATA:", data);
+    console.log("WEAPONS ERROR:", error);
+
+    const { data: users } = await supabase.from("users").select("*");
+    console.log("USERS DATA:", users);
+
+    const { data: inv } = await supabase.from("inventories").select("*");
+    console.log("INVENTORIES DATA:", inv);
+  }
+
+  fetchWeapons();
 }, []);
+
 async function fetchAllData() {
   setLoading(true);
   try {
