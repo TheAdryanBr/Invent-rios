@@ -285,14 +285,7 @@ export default function App(){
         {data: stand_weapons}
       ] = await Promise.all([
         supabase.from('users').select('*'),
-        const { data, error } = await supabase.from("inventarios").select("*");
-if (error) {
-  console.error("Erro ao buscar inventários:", error);
-} else if (data && data.length > 0) {
-  setInventarios(data); // só atualiza se vier dados
-} else {
-  console.log("Nenhum inventário encontrado, mantendo dados locais.");
-};
+        supabase.from('inventories').select('*'),
         supabase.from('categories').select('*'),
         supabase.from('items').select('*'),
         supabase.from('weapons').select('*'),
