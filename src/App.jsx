@@ -14,37 +14,35 @@ const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  async function testSupabase() {
+  async function testInsertVerbose() {
     try {
-      // Teste de SELECT simples
-      const { data: selData, error: selError } = await supabase
+      // SELECT só pra conferir
+      const { data: selData, error: selError, status: selStatus } = await supabase
         .from('weapons')
-        .select('*')
+        .select('id,name,damage') // usar sem aspas
         .limit(1);
 
-      if (selError) {
-        console.error('SELECT weapons error:', selError);
-      } else {
-        console.log('SELECT weapons OK:', selData);
-      }
+      console.log('SELECT status:', selStatus);
+      console.log('SELECT data:', selData);
+      console.log('SELECT error:', selError);
 
-      // Teste de INSERT (registro de teste)
-      const { data: insData, error: insError } = await supabase
+      // Ajuste payload conforme o schema da sua tabela
+      const payload = { name: 'TEST_WEAPON_DEBUG', damage: 1 };
+
+      // INSERT verboso
+      const { data: insData, error: insError, status: insStatus } = await supabase
         .from('weapons')
-        .insert([{ name: 'TEST_WEAPON_DEBUG', damage: 1 }]); // ajuste campos conforme sua tabela
+        .insert([payload], { returning: 'representation' });
 
-      if (insError) {
-        console.error('INSERT weapons error:', insError);
-      } else {
-        console.log('INSERT weapons OK:', insData);
-        // opcional: deletar o teste depois
-        await supabase.from('weapons').delete().eq('name', 'TEST_WEAPON_DEBUG');
-      }
+      console.log('INSERT status:', insStatus);
+      console.log('INSERT data:', insData);
+      console.log('INSERT error (raw):', insError);
+      if (insError) console.log('INSERT error JSON:', JSON.stringify(insError, null, 2));
     } catch (err) {
-      console.error('Erro inesperado no testSupabase:', err);
+      console.error('Erro inesperado:', err);
     }
   }
-  testSupabase();
+  testInsertVerbose();
 }, []);
 
 async function fetchAllData() {
