@@ -13,6 +13,40 @@ const [stands, setStands] = useState([]);
 const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
+useEffect(() => {
+  async function testSupabase() {
+    try {
+      // Teste de SELECT simples
+      const { data: selData, error: selError } = await supabase
+        .from('weapons')
+        .select('*')
+        .limit(1);
+
+      if (selError) {
+        console.error('SELECT weapons error:', selError);
+      } else {
+        console.log('SELECT weapons OK:', selData);
+      }
+
+      // Teste de INSERT (registro de teste)
+      const { data: insData, error: insError } = await supabase
+        .from('weapons')
+        .insert([{ name: 'TEST_WEAPON_DEBUG', damage: 1 }]); // ajuste campos conforme sua tabela
+
+      if (insError) {
+        console.error('INSERT weapons error:', insError);
+      } else {
+        console.log('INSERT weapons OK:', insData);
+        // opcional: deletar o teste depois
+        await supabase.from('weapons').delete().eq('name', 'TEST_WEAPON_DEBUG');
+      }
+    } catch (err) {
+      console.error('Erro inesperado no testSupabase:', err);
+    }
+  }
+  testSupabase();
+}, []);
+
 async function fetchAllData() {
   setLoading(true);
   try {
