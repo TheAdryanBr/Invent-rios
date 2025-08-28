@@ -14,7 +14,7 @@ const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  async function {
+  async function testSupabaseVerbose() {
     try {
       // SELECT só pra conferir
       const { data: selData, error: selError, status: selStatus } = await supabase
