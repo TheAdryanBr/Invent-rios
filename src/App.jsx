@@ -14,7 +14,7 @@ const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  async function testInsertVerbose() {
+  async function {
     try {
       // SELECT só pra conferir
       const { data: selData, error: selError, status: selStatus } = await supabase
@@ -483,26 +483,76 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   }
 
   // More Supabase helpers would go here...
-  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }){
-    if(!supabase) throw new Error('Supabase não configurado');
-    const id = `w_${Date.now()}`;
-    let image_url = null;
+  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
+  if (!supabase) throw new Error('Supabase não configurado');
 
-    if(imageFile){
-      const ext = imageFile.name.split('.').pop();
-      const path = `weapons/${id}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('weapons').upload(path, imageFile, { upsert: true });
-      if(uploadError) throw uploadError;
-      const { data } = supabase.storage.from('weapons').getPublicUrl(path);
-      image_url = data.publicUrl;
+  // gerar id no cliente (UUID). Usa crypto.randomUUID se disponível, senão fallback timestamp
+  const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `w_${Date.now()}`;
+
+  let image_url = null;
+  const bucket = 'weapons'; // garanta que o bucket existe no Supabase Storage
+
+  try {
+    // 1) Upload da imagem (se houver)
+    if (imageFile) {
+      const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+      const path = `weapons/${id}.${ext}`; // caminho no storage
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, imageFile, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // obter url pública
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+      image_url = urlData?.publicUrl ?? null;
     }
 
-    const { error } = await supabase.from('weapons').insert([{ 
-      id, name, damage, mag_capacity: magCapacity, ammo_type: ammoType, price, image_url 
-    }]);
-    if(error) throw error;
-    return { id, name, damage, magCapacity, ammoType, price, image_url };
+    // 2) Insert na tabela weapons
+    const payload = {
+      id, // usamos o id gerado no cliente
+      name,
+      damage,
+      mag_capacity: magCapacity,
+      ammo_type: ammoType,
+      price,
+      image_url
+    };
+
+    const { data, error } = await supabase
+      .from('weapons')
+      .insert([payload], { returning: 'representation' });
+
+    if (error) {
+      // se insert falhar, remover a imagem que acabou de subir (cleanup)
+      if (image_url) {
+        try {
+          // path precisa ser igual ao usado no upload; remover arquivo
+          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+          const path = `weapons/${id}.${ext}`;
+          await supabase.storage.from(bucket).remove([path]);
+        } catch (e) {
+          console.warn('Erro ao limpar imagem após falha de insert:', e);
+        }
+      }
+      throw error;
+    }
+
+    // 3) Atualizar UI / estados (chame sua função de reload se existir)
+    if (typeof fetchAllData === 'function') {
+      try { fetchAllData(); } catch (e) { console.warn('fetchAllData falhou:', e); }
+    }
+
+    // data é um array (representation), retornar o primeiro elemento
+    return (Array.isArray(data) && data[0]) ? data[0] : data;
+  } catch (err) {
+    console.error('Erro em createWeaponSupabase:', err);
+    throw err; // deixe o chamador lidar com a UI/alert
   }
+}
 
   // ---------- UI + routing ----------
   return (
