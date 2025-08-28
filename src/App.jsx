@@ -3,6 +3,68 @@ import { supabase } from "./lib/supabase";
 import TransferModal from "./components/TransferModal";
 import { v4 as uuidv4 } from 'uuid';
 
+export default function App() {
+const [users, setUsers] = useState([]);
+const [inventories, setInventories] = useState([]);
+const [categories, setCategories] = useState([]);
+const [items, setItems] = useState([]);
+const [weapons, setWeapons] = useState([]);
+const [stands, setStands] = useState([]);
+const [standWeapons, setStandWeapons] = useState([]);
+const [loading, setLoading] = useState(false);
+
+async function fetchAllData() {
+  setLoading(true);
+  try {
+    const [
+      { data: usersData },
+      { data: inventoriesData },
+      { data: categoriesData },
+      { data: itemsData },
+      { data: weaponsData },
+      { data: standsData },
+      { data: standWeaponsData },
+    ] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('inventories').select('*'),
+      supabase.from('categories').select('*'),
+      supabase.from('items').select('*'),
+      supabase.from('weapons').select('*'),
+      supabase.from('stands').select('*'),
+      supabase.from('stand_weapons').select('*'),
+    ]);
+
+    setUsers(usersData || []);
+    setCategories(categoriesData || []);
+    setItems(itemsData || []);
+    setWeapons(weaponsData || []);
+    setStands(standsData || []);
+    setStandWeapons(standWeaponsData || []);
+
+    const enrichedInventories = (inventoriesData || []).map(inv => {
+      let detailedItem = null;
+      if (inv.item_id) detailedItem = itemsData.find(i => i.id === inv.item_id);
+      else if (inv.weapon_id) detailedItem = weaponsData.find(w => w.id === inv.weapon_id);
+
+      return {
+        ...inv,
+        details: detailedItem || null,
+      };
+    });
+
+    setInventories(enrichedInventories);
+
+  } catch (err) {
+    console.error("Erro ao buscar dados:", err);
+  } finally {
+    setLoading(false);
+  }
+}
+  
+useEffect(() => {
+  fetchAllData();
+}, []);
+
 // ---------- MOCK DATA ----------
 const MOCK_STATE = {
   currentUser: null,
@@ -1749,7 +1811,16 @@ function BuyModal({ open, standId, weaponId, onClose, buyerOptions, selectedBuye
   );
 }
 
-// Utility function
+ return (
+    <div>
+      {loading && <p>Carregando dados...</p>}
+      <Inventory inventories={inventories} />
+      <Shop categories={categories} items={items} weapons={weapons} />
+    </div>
+  );
+}
+
+// 5️⃣ Função utilitária shuffleArray → fora da função App
 function shuffleArray(arr) { 
   const a = [...arr]; 
   for (let i = a.length - 1; i > 0; i--) { 
