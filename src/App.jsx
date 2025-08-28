@@ -14,38 +14,14 @@ const [standWeapons, setStandWeapons] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  async function testSupabaseVerbose() {
+  (async () => {
     try {
-      const { data: selData, error: selError, status: selStatus } = await supabase
-        .from('weapons')
-        .select('id,name,damage')
-        .limit(1);
-
-      console.log('SELECT status:', selStatus);
-      console.log('SELECT data:', selData);
-      console.log('SELECT error:', selError && JSON.stringify(selError, null, 2));
-
-      const payload = { name: 'TEST_WEAPON_DEBUG', damage: 1 };
-      const { data: insData, error: insError, status: insStatus } = await supabase
-        .from('weapons')
-        .insert([payload], { returning: 'representation' });
-
-      console.log('INSERT status:', insStatus);
-      console.log('INSERT data:', insData);
-      console.log('INSERT error:', insError && JSON.stringify(insError, null, 2));
-
-      if (insData && insData.length) {
-        await supabase.from('weapons').delete().eq('name', 'TEST_WEAPON_DEBUG');
-        console.log('Teste DELETE executado');
-      }
+      // ... seu código assíncrono aqui ...
     } catch (err) {
-      console.error('Erro inesperado no testSupabaseVerbose:', err);
+      console.error('Erro inesperado no IIFE:', err);
     }
-  }
-
-  testSupabaseVerbose();
+  })();
 }, []);
-
 async function fetchAllData() {
   setLoading(true);
   try {
