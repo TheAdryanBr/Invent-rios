@@ -284,7 +284,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
 }
 
 // ---------- Main App ----------
-export default function App(){
+{
   const [state, setState] = useState(MOCK_STATE);
   const [view, setView] = useState('menu'); // menu | inventory | shop
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
