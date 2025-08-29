@@ -1128,6 +1128,14 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [connectedSupabase, setConnectedSupabase] = useState(false);
 
+  // Automatically connect to Supabase on mount
+  useEffect(() => {
+    if (supabase) {
+      console.log('Supabase client configurado');
+      loadFromSupabase();
+    }
+  }, []);
+
   // --- Supabase write helpers ---
   async function updateInventoryCustom(invId, newCustom) {
     if (!supabase) return false;
@@ -1335,12 +1343,6 @@ export default function App() {
     } 
   }
 
-  useEffect(() => { 
-    if (supabase) { 
-      console.log('Supabase client configurado');
-    } 
-  }, []);
-
   const currentUser = state.currentUser;
 
   const visibleInventories = Object.values(state.inventories).filter(inv => {
@@ -1378,14 +1380,6 @@ export default function App() {
       <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
         <h1 className="text-2xl font-bold">Inventários & Loja — Completo</h1>
         <div className="flex items-center gap-3">
-          {supabase && !connectedSupabase && (
-            <button 
-              className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
-              onClick={loadFromSupabase}
-            >
-              Conectar Supabase
-            </button>
-          )}
           {connectedSupabase && (
             <span className="text-sm text-green-400">✓ Conectado ao Supabase</span>
           )}
