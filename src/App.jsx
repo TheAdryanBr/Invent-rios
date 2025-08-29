@@ -1435,38 +1435,6 @@ useEffect(() => {
   }
 }
 
-  // --- Supabase write helpers (injected) ---
-  async function updateInventoryCustom(invId, newCustom) {
-    if (!supabase) return false;
-    try {
-      const { error } = await supabase.from('inventories').update({ custom: newCustom }).eq('id', invId);
-      if (error) {
-        console.error('Erro ao atualizar inventário:', error);
-        return false;
-      }
-      return true;
-    } catch (e) {
-      console.error('updateInventoryCustom unexpected', e);
-      return false;
-    }
-  }
-
-  async function updateCategoryName(categoryId, newName) {
-    if (!supabase) return false;
-    try {
-      const { error } = await supabase.from('categories').update({ name: newName }).eq('id', categoryId);
-      if (error) {
-        console.error('Erro ao atualizar categoria:', error);
-        return false;
-      }
-      return true;
-    } catch (e) {
-      console.error('updateCategoryName unexpected', e);
-      return false;
-    }
-  }
-
-
   // ---------- UI + routing ----------
   return (
     <div className="min-h-screen bg-neutral-800 text-white">
