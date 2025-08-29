@@ -209,46 +209,90 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   async function createCategory() {
     if (!newCatName) return alert('Digite o nome da nova categoria');
 
-    if (connectedSupabase) {
-      // Implementar Supabase create category
-      alert('Funcionalidade Supabase em desenvolvimento');
-      return;
-    }
+    const catId = crypto.randomUUID ? crypto.randomUUID() : `cat_${Date.now()}`;
 
-    const cat = { id: `cat_${Date.now()}`, name: newCatName, items: [] };
-    updateState(prev => {
-      const inv = { ...prev.inventories[inventory.id] };
-      inv.custom = { ...(inv.custom || {}) };
-      inv.custom[selectedFixed] = [...(inv.custom[selectedFixed] || []), cat];
-      return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
-    });
+    if (connectedSupabase) {
+      const { data, error } = await supabase.from('categories').insert({
+        id: catId,
+        inventory_id: inventory.id,
+        parent_fixed: selectedFixed,
+        name: newCatName
+      }).select();
+
+      if (error) {
+        console.error('Erro ao criar categoria no Supabase:', error);
+        alert('Erro ao criar categoria');
+        return;
+      }
+
+      const cat = data[0];
+      updateState(prev => {
+        const inv = { ...prev.inventories[inventory.id] };
+        inv.custom = { ...(inv.custom || {}) };
+        if (!inv.custom[selectedFixed]) inv.custom[selectedFixed] = [];
+        inv.custom[selectedFixed].push({ id: cat.id, name: cat.name, items: [] });
+        return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+      });
+    } else {
+      const cat = { id: catId, name: newCatName, items: [] };
+      updateState(prev => {
+        const inv = { ...prev.inventories[inventory.id] };
+        inv.custom = { ...(inv.custom || {}) };
+        inv.custom[selectedFixed] = [...(inv.custom[selectedFixed] || []), cat];
+        return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+      });
+    }
     setNewCatName('');
   }
 
   async function createItem() {
     if (!newItemName || !targetCatForNewItem) return alert('Nome e categoria alvo necessários');
 
+    const itemId = crypto.randomUUID ? crypto.randomUUID() : `it_${Date.now()}`;
+
     if (connectedSupabase) {
-      // Implementar Supabase create item
-      alert('Funcionalidade Supabase em desenvolvimento');
-      return;
+      const metadata = { description: newItemDesc };
+      const { data, error } = await supabase.from('items').insert({
+        id: itemId,
+        category_id: targetCatForNewItem,
+        name: newItemName,
+        qty: Number(newItemQty) || 1,
+        metadata,
+        type: 'item'
+      }).select();
+
+      if (error) {
+        console.error('Erro ao criar item no Supabase:', error);
+        alert('Erro ao criar item');
+        return;
+      }
+
+      const item = data[0];
+      updateState(prev => {
+        const inv = { ...prev.inventories[inventory.id] };
+        inv.custom = { ...(inv.custom || {}) };
+        inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
+          c.id === targetCatForNewItem ? { ...c, items: [...c.items, { id: item.id, name: item.name, qty: item.qty, desc: item.metadata?.description || '', type: item.type, metadata: item.metadata }] } : c
+        );
+        return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+      });
+    } else {
+      const item = { 
+        id: itemId, 
+        name: newItemName, 
+        qty: Number(newItemQty) || 1, 
+        desc: newItemDesc || '' 
+      };
+
+      updateState(prev => {
+        const inv = { ...prev.inventories[inventory.id] };
+        inv.custom = { ...(inv.custom || {}) };
+        inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
+          c.id === targetCatForNewItem ? { ...c, items: [...c.items, item] } : c
+        );
+        return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+      });
     }
-
-    const item = { 
-      id: `it_${Date.now()}`, 
-      name: newItemName, 
-      qty: Number(newItemQty) || 1, 
-      desc: newItemDesc || '' 
-    };
-
-    updateState(prev => {
-      const inv = { ...prev.inventories[inventory.id] };
-      inv.custom = { ...(inv.custom || {}) };
-      inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
-        c.id === targetCatForNewItem ? { ...c, items: [...c.items, item] } : c
-      );
-      return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
-    });
 
     setNewItemName(''); 
     setNewItemQty(1); 
@@ -261,9 +305,15 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     if (mag <= 0) return alert('Pente vazio. Recarregue.');
     const newMag = mag - 1;
 
+    const newMetadata = { ...item.metadata, magCurrent: newMag };
+
     if (connectedSupabase) {
-      alert('Funcionalidade Supabase em desenvolvimento');
-      return;
+      const { error } = await supabase.from('items').update({ metadata: newMetadata }).eq('id', item.id);
+      if (error) {
+        console.error('Erro ao atualizar item no Supabase:', error);
+        alert('Erro ao atirar');
+        return;
+      }
     }
 
     updateState(prev => {
@@ -273,7 +323,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         ...c,
         items: c.items.map(it => 
           it.id === item.id ? 
-          { ...it, metadata: { ...it.metadata, magCurrent: newMag } } : 
+          { ...it, metadata: newMetadata } : 
           it
         )
       }));
@@ -285,9 +335,15 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     const cap = (item.metadata && (item.metadata.magCapacity || item.metadata.mag_capacity)) || 0;
     if (cap <= 0) return alert('Capacidade do pente desconhecida.');
 
+    const newMetadata = { ...item.metadata, magCurrent: cap };
+
     if (connectedSupabase) {
-      alert('Funcionalidade Supabase em desenvolvimento');
-      return;
+      const { error } = await supabase.from('items').update({ metadata: newMetadata }).eq('id', item.id);
+      if (error) {
+        console.error('Erro ao atualizar item no Supabase:', error);
+        alert('Erro ao recarregar');
+        return;
+      }
     }
 
     updateState(prev => {
@@ -297,7 +353,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         ...c,
         items: c.items.map(it => 
           it.id === item.id ? 
-          { ...it, metadata: { ...it.metadata, magCurrent: cap } } : 
+          { ...it, metadata: newMetadata } : 
           it
         )
       }));
@@ -306,13 +362,22 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   }
 
   // Edit handlers
-  function handleEditSave(updated) {
+  async function handleEditSave(updated) {
+    const newMetadata = { ...updated.metadata, description: updated.desc || '' };
+
     if (connectedSupabase) {
-      alert('Funcionalidade Supabase em desenvolvimento');
-      return;
+      const { error } = await supabase.from('items').update({
+        name: updated.name,
+        qty: updated.qty,
+        metadata: newMetadata
+      }).eq('id', updated.id);
+      if (error) {
+        console.error('Erro ao atualizar item no Supabase:', error);
+        alert('Erro ao salvar edição');
+        return;
+      }
     }
 
-    let newCustomForSave = null;
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.custom = { ...(inv.custom || {}) };
@@ -324,25 +389,94 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
             ...i, 
             name: updated.name, 
             qty: updated.qty, 
-            desc: updated.metadata?.description || updated.desc || '',
-            metadata: { ...(i.metadata||{}), ...(updated.metadata||{}) } 
+            desc: updated.desc || '',
+            metadata: newMetadata 
           } : 
           i
         )
       }));
-      newCustomForSave = inv.custom;
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
-    if (connectedSupabase && newCustomForSave) {
-      updateInventoryCustom(inventory.id, newCustomForSave).catch(e => console.error('Erro salvando no supabase:', e));
-    }
   }
 
   // Transfer handler
-  function handleTransfer({ categoryId, itemId, quantity, targetInventoryId }) {
+  async function handleTransfer({ categoryId, itemId, quantity, targetInventoryId }) {
+    const srcInv = state.inventories[inventory.id];
+    const catList = srcInv.custom[selectedFixed] || [];
+    const catObj = catList.find(c => c.id === categoryId);
+    if (!catObj) return;
+
+    const itemObj = catObj.items.find(it => it.id === itemId);
+    if (!itemObj) return;
+
+    const moveQty = Math.min(quantity, itemObj.qty || 0);
+
     if (connectedSupabase) {
-      alert('Transfer em modo Supabase não implementado automaticamente. Adapte para executar inserção/atualização nas suas tabelas.');
-      return;
+      // Find or create target category
+      let tgtCatId;
+      const tgtInv = state.inventories[targetInventoryId];
+      const storageFixed = tgtInv.fixedCategories.find(f => 
+        f.toLowerCase().includes('moch') || f.toLowerCase().includes('malet')
+      ) || tgtInv.fixedCategories[0];
+
+      let tgtCat = tgtInv.custom[storageFixed]?.find(c => c.name === catObj.name);
+      if (!tgtCat) {
+        const newTgtCatId = crypto.randomUUID ? crypto.randomUUID() : `cat_${Date.now()}`;
+        const { data, error } = await supabase.from('categories').insert({
+          id: newTgtCatId,
+          inventory_id: targetInventoryId,
+          parent_fixed: storageFixed,
+          name: catObj.name || 'Transferidos'
+        }).select();
+        if (error) {
+          console.error('Erro ao criar categoria no target:', error);
+          alert('Erro na transferência');
+          return;
+        }
+        tgtCat = data[0];
+        // Update local target
+        updateState(prev => {
+          const nextTgt = { ...prev.inventories[targetInventoryId] };
+          if (!nextTgt.custom[storageFixed]) nextTgt.custom[storageFixed] = [];
+          nextTgt.custom[storageFixed].push({ id: tgtCat.id, name: tgtCat.name, items: [] });
+          return { ...prev, inventories: { ...prev.inventories, [targetInventoryId]: nextTgt } };
+        });
+      }
+      tgtCatId = tgtCat.id;
+
+      // Handle item move
+      if (moveQty >= itemObj.qty) {
+        // Move whole item
+        const { error } = await supabase.from('items').update({ category_id: tgtCatId }).eq('id', itemId);
+        if (error) {
+          console.error('Erro ao mover item:', error);
+          alert('Erro na transferência');
+          return;
+        }
+      } else {
+        // Reduce original, create new
+        const { error: updateErr } = await supabase.from('items').update({ qty: itemObj.qty - moveQty }).eq('id', itemId);
+        if (updateErr) {
+          console.error('Erro ao atualizar qty original:', updateErr);
+          alert('Erro na transferência');
+          return;
+        }
+
+        const newItemId = crypto.randomUUID ? crypto.randomUUID() : `it_${Date.now()}`;
+        const { error: insertErr } = await supabase.from('items').insert({
+          id: newItemId,
+          category_id: tgtCatId,
+          name: itemObj.name,
+          qty: moveQty,
+          metadata: itemObj.metadata,
+          type: itemObj.type
+        });
+        if (insertErr) {
+          console.error('Erro ao criar novo item:', insertErr);
+          alert('Erro na transferência');
+          return;
+        }
+      }
     }
 
     updateState(prev => {
@@ -352,10 +486,8 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
 
       const catList = srcInv.custom[selectedFixed] || [];
       const catObj = catList.find(c => c.id === categoryId);
-      if (!catObj) return prev;
 
       const itemObj = catObj.items.find(it => it.id === itemId);
-      if (!itemObj) return prev;
 
       const moveQty = Math.min(quantity, itemObj.qty || 0);
 
@@ -406,8 +538,17 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   }
 
   // Delete functions
-  function deleteItem(catId, itemId) {
+  async function deleteItem(catId, itemId) {
     if (!confirm('Remover este item?')) return;
+
+    if (connectedSupabase) {
+      const { error } = await supabase.from('items').delete().eq('id', itemId);
+      if (error) {
+        console.error('Erro ao deletar item no Supabase:', error);
+        alert('Erro ao deletar item');
+        return;
+      }
+    }
 
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
@@ -419,36 +560,45 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     });
   }
 
-  function deleteCategory(catId) {
+  async function deleteCategory(catId) {
     if (!confirm('Excluir categoria e todos os itens?')) return;
 
-    let newCustomForSave = null;
+    if (connectedSupabase) {
+      // Delete items first
+      const { data: itemsToDelete, error: fetchErr } = await supabase.from('items').select('id').eq('category_id', catId);
+      if (fetchErr) {
+        console.error('Erro ao fetch items para delete:', fetchErr);
+        alert('Erro ao deletar categoria');
+        return;
+      }
+      if (itemsToDelete.length > 0) {
+        const itemIds = itemsToDelete.map(i => i.id);
+        const { error: deleteItemsErr } = await supabase.from('items').delete().in('id', itemIds);
+        if (deleteItemsErr) {
+          console.error('Erro ao deletar items:', deleteItemsErr);
+          alert('Erro ao deletar categoria');
+          return;
+        }
+      }
+      // Delete category
+      const { error: deleteCatErr } = await supabase.from('categories').delete().eq('id', catId);
+      if (deleteCatErr) {
+        console.error('Erro ao deletar categoria:', deleteCatErr);
+        alert('Erro ao deletar categoria');
+        return;
+      }
+    }
+
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.custom = { ...(inv.custom || {}) };
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).filter(c => c.id !== catId);
-      newCustomForSave = inv.custom;
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
-    if (connectedSupabase && newCustomForSave) { 
-      updateInventoryCustom(inventory.id, newCustomForSave).catch(e => console.error('Erro salvar deleteCategory', e)); 
-    }
   }
 
   // Drag & Drop handlers
-  function handleDragStart(e, catId, itemId) {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ 
-      type: 'item', fromCat: catId, itemId 
-    }));
-    e.dataTransfer.effectAllowed = 'move';
-  }
-
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }
-
-  function handleDrop(e, toCatId) {
+  async function handleDrop(e, toCatId) {
     e.preventDefault();
     try {
       const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
@@ -456,6 +606,15 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
 
       const { fromCat, itemId } = payload;
       if (!itemId || fromCat === toCatId) return;
+
+      if (connectedSupabase) {
+        const { error } = await supabase.from('items').update({ category_id: toCatId }).eq('id', itemId);
+        if (error) {
+          console.error('Erro ao mover item no Supabase:', error);
+          alert('Erro ao mover item');
+          return;
+        }
+      }
 
       updateState(prev => {
         const inv = { ...prev.inventories[inventory.id] };
@@ -488,7 +647,8 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   }
 
   // Rename functions
-  function renameFixedCategory(index, newName) {
+  async function renameFixedCategory(index, newName) {
+    // Assuming fixedCategories are local only, no Supabase sync for rename fixed
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       const fixed = [...(inv.fixedCategories || [])];
@@ -496,9 +656,22 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       inv.fixedCategories = fixed;
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
+    if (connectedSupabase) {
+      // If fixedCategories saved in DB, update here
+      // e.g., await supabase.from('inventories').update({ fixed_categories: fixed }).eq('id', inventory.id);
+    }
   }
 
-  function renameCustomCategory(catId, newName) {
+  async function renameCustomCategory(catId, newName) {
+    if (connectedSupabase) {
+      const { error } = await supabase.from('categories').update({ name: newName }).eq('id', catId);
+      if (error) {
+        console.error('Erro ao renomear categoria no Supabase:', error);
+        alert('Erro ao renomear categoria');
+        return;
+      }
+    }
+
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.custom = { ...(inv.custom || {}) };
@@ -509,19 +682,28 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     });
   }
 
-  function saveStatusNotesToState() {
+  async function saveStatusNotesToState() {
+    if (connectedSupabase) {
+      const { error } = await supabase.from('inventories').update({ status: statusText, notes: notesText }).eq('id', inventory.id);
+      if (error) {
+        console.error('Erro ao salvar status/notes no Supabase:', error);
+        alert('Erro ao salvar');
+        return;
+      }
+    }
+
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.meta = { ...(inv.meta || {}), status: statusText, notes: notesText };
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
-    alert('Salvo localmente.');
+    alert('Salvo.');
   }
 
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{inventory.name} - Inventário</h2>
+        <h2 className="text-2xl font-bold">{inventory.name} — Inventário</h2>
         <div className="flex gap-2">
           <BackButton onClick={onBack} />
         </div>
@@ -773,6 +955,9 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                                   const inv = { ...prev.inventories[inventory.id], money: Number(v) }; 
                                   return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } }; 
                                 }); 
+                                if (connectedSupabase) {
+                                  supabase.from('inventories').update({ money: Number(v) }).eq('id', inventory.id);
+                                }
                               } 
                             }}
                           >
@@ -867,530 +1052,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         weaponInfo={editWeaponInfo}
         onSave={handleEditSave}
       />
-    </div>
-  );
-}
-
-// ShopView Component
-function ShopView({ shop, weapons, currentUser, state, updateState, onBack, connectedSupabase, createWeaponSupabase, loadFromSupabase }) {
-  const isAdmin = currentUser?.role === 'gm';
-  const [form, setForm] = useState({
-    name: '', 
-    damage: 0, 
-    magCapacity: 10, 
-    ammoType: '9mm', 
-    price: 1000, 
-    imageFile: null
-  });
-  const [buyModal, setBuyModal] = useState({ open: false, standId: null, weaponId: null });
-  const [selectedBuyerInv, setSelectedBuyerInv] = useState(null);
-  const carouselRef = useRef(null);
-
-  function handleFileChange(e) { 
-    setForm(prev => ({ ...prev, imageFile: e.target.files[0] })); 
-  }
-
-  async function createWeapon(e) {
-    e.preventDefault();
-    if (!isAdmin) return alert('Apenas GM pode criar armas');
-    if (!form.name) return alert('Nome obrigatório');
-
-    if (connectedSupabase) {
-      try {
-        await createWeaponSupabase({ 
-          name: form.name, 
-          damage: form.damage, 
-          magCapacity: form.magCapacity, 
-          ammoType: form.ammoType, 
-          price: form.price, 
-          imageFile: form.imageFile 
-        });
-        alert('Arma criada no Supabase');
-        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
-        await loadFromSupabase();
-      } catch (err) { 
-        console.error(err); 
-        alert('Erro ao criar arma no Supabase'); 
-      }
-    } else {
-      if (form.imageFile) {
-        const b64 = await readFileAsBase64(form.imageFile);
-        const id = `w_${Date.now()}`;
-        const weapon = { 
-          id, 
-          name: form.name, 
-          damage: Number(form.damage), 
-          magCapacity: Number(form.magCapacity), 
-          ammoType: form.ammoType, 
-          price: Number(form.price), 
-          imageBase64: b64 
-        };
-        updateState(prev => ({ ...prev, weapons: { ...prev.weapons, [id]: weapon } }));
-        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
-      } else {
-        alert('Envie uma imagem');
-      }
-    }
-  }
-
-  function readFileAsBase64(file) { 
-    return new Promise((res, rej) => { 
-      const reader = new FileReader(); 
-      reader.onload = () => res(reader.result); 
-      reader.onerror = rej; 
-      reader.readAsDataURL(file); 
-    }); 
-  }
-
-  function openBuyModal(standId, weaponId) { 
-    setBuyModal({ open: true, standId, weaponId }); 
-    setSelectedBuyerInv(null); 
-  }
-
-  function closeBuyModal() { 
-    setBuyModal({ open: false, standId: null, weaponId: null }); 
-  }
-
-  const buyerOptions = Object.values(state.inventories).filter(inv => {
-    if (currentUser?.role === 'gm') return !!inv.ownerId;
-    if (!currentUser) return false;
-    return inv.ownerId === currentUser.id;
-  });
-
-  async function confirmPurchase() {
-    const { standId, weaponId } = buyModal;
-    const inv = state.inventories[selectedBuyerInv];
-    const weapon = state.weapons[weaponId];
-    if (!inv || !weapon) return alert('Dados inválidos');
-
-    if (connectedSupabase) {
-      alert('Funcionalidade de compra via Supabase em desenvolvimento');
-      return;
-    }
-
-    if ((inv.money || 0) < weapon.price) return alert('Saldo insuficiente');
-
-    updateState(prev => {
-      const next = { ...prev };
-      next.inventories[selectedBuyerInv].money = (next.inventories[selectedBuyerInv].money || 0) - weapon.price;
-      next.shop = { ...next.shop };
-      next.shop.stands = next.shop.stands.map(s => 
-        s.id === standId ? 
-        { ...s, weaponIds: s.weaponIds.filter(w => w !== weaponId) } : 
-        s
-      );
-
-      const invObj = next.inventories[selectedBuyerInv];
-      const parentFixed = invObj.fixedCategories.find(f => 
-        f.toLowerCase().includes('moch') || f.toLowerCase().includes('malet')
-      ) || invObj.fixedCategories[0];
-
-      if (!invObj.custom[parentFixed]) invObj.custom[parentFixed] = [];
-
-      let catObj = invObj.custom[parentFixed].find(c => 
-        c.name.toLowerCase().includes('arma')
-      ) || invObj.custom[parentFixed][0];
-
-      if (!catObj) { 
-        const newCat = { id: `cat_${Date.now()}`, name: 'Armas', items: [] }; 
-        invObj.custom[parentFixed].push(newCat); 
-        catObj = newCat; 
-      }
-
-      const itemId = `it_${Date.now()}`;
-      const item = { 
-        id: itemId, 
-        name: weapon.name, 
-        qty: 1, 
-        desc: '', 
-        type: 'weapon', 
-        metadata: { 
-          weapon_id: weapon.id, 
-          magCurrent: weapon.magCapacity || 0, 
-          magCapacity: weapon.magCapacity || 0, 
-          ammoType: weapon.ammoType || '', 
-          damage: weapon.damage || 0, 
-          image: weapon.imageBase64 || null 
-        } 
-      };
-      catObj.items.push(item);
-      return next;
-    });
-
-    alert('Compra realizada com sucesso');
-    closeBuyModal();
-  }
-
-  function addWeaponToStandLocal(standId, weaponId) { 
-    updateState(prev => { 
-      const next = { ...prev }; 
-      next.shop = { ...next.shop }; 
-      next.shop.stands = next.shop.stands.map(s => 
-        s.id === standId ? 
-        { ...s, weaponIds: s.weaponIds.includes(weaponId) ? s.weaponIds : [...s.weaponIds, weaponId].slice(0, s.slots) } : 
-        s
-      ); 
-      return next; 
-    }); 
-  }
-
-  function removeWeaponFromStandLocal(standId, weaponId) { 
-    updateState(prev => { 
-      const next = { ...prev }; 
-      next.shop = { ...next.shop }; 
-      next.shop.stands = next.shop.stands.map(s => 
-        s.id === standId ? 
-        { ...s, weaponIds: s.weaponIds.filter(w => w !== weaponId) } : 
-        s
-      ); 
-      return next; 
-    }); 
-  }
-
-  function deleteWeaponLocal(weaponId) {
-    if (!confirm('Excluir arma permanentemente (GM)?')) return;
-    updateState(prev => {
-      const next = { ...prev };
-      const wmap = { ...next.weapons };
-      delete wmap[weaponId];
-      next.weapons = wmap;
-      next.shop = { ...next.shop };
-      next.shop.stands = next.shop.stands.map(s => ({
-        ...s, 
-        weaponIds: s.weaponIds.filter(w => w !== weaponId)
-      }));
-      return next;
-    });
-  }
-
-  function scrollCarousel(direction = 'next') {
-    if (!carouselRef.current) return;
-    const el = carouselRef.current;
-    const amount = el.clientWidth * 0.8;
-    el.scrollBy({ 
-      left: direction === 'next' ? amount : -amount, 
-      behavior: 'smooth' 
-    });
-  }
-
-  function gmRandomizeStandLocal(standId) { 
-    const allWeaponIds = Object.keys(state.weapons); 
-    const weaponsInAnyStand = new Set(state.shop.stands.flatMap(s => s.weaponIds)); 
-    const available = allWeaponIds.filter(id => !weaponsInAnyStand.has(id)); 
-    const maxAllowed = Math.min(allWeaponIds.length, allWeaponIds.length >= 20 ? 12 : allWeaponIds.length); 
-
-    if (available.length === 0) return alert('Nenhuma arma disponível'); 
-
-    const count = Math.max(1, Math.min(maxAllowed, Math.floor(Math.random() * Math.min(available.length, maxAllowed)) + 1)); 
-    const chosen = shuffleArray(available).slice(0, count); 
-
-    updateState(prev => { 
-      const next = { ...prev }; 
-      next.shop = { ...next.shop }; 
-      next.shop.stands = next.shop.stands.map(s => 
-        s.id === standId ? 
-        { ...s, weaponIds: chosen.slice(0, s.slots) } : 
-        s
-      ); 
-      return next; 
-    }); 
-  }
-
-  return (
-    <div>
-      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">Loja (Stands)</h2>
-        <BackButton onClick={onBack} />
-      </div>
-
-      <div className="relative">
-        <button 
-          className="absolute left-0 top-10 z-20 px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-          onClick={() => scrollCarousel('prev')}
-        >
-          ◀
-        </button>
-
-        <div 
-          ref={carouselRef} 
-          className="flex gap-4 overflow-x-auto py-4 scroll-smooth"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {shop.stands.map(s => (
-            <div key={s.id} className="min-w-[320px] flex-shrink-0 bg-neutral-700 p-4 rounded shadow border border-neutral-600">
-              <div className="flex justify-between items-center mb-2">
-                <strong className="text-white">{s.name}</strong>
-                <div className="text-sm text-neutral-300">Slots: {s.slots}</div>
-              </div>
-
-              <div className="min-h-[140px] border border-neutral-700 rounded p-2 mb-2 bg-neutral-800">
-                <div className="grid grid-cols-2 gap-2">
-                  {s.weaponIds.length === 0 && (
-                    <div className="col-span-2 text-sm text-neutral-400">
-                      Nenhuma arma disponível neste stand.
-                    </div>
-                  )}
-                  {s.weaponIds.map(wid => {
-                    const w = state.weapons[wid];
-                    if (!w) return null;
-
-                    return (
-                      <div key={wid} className="border border-neutral-700 rounded p-2 text-white bg-neutral-800 flex gap-2">
-                        {(w.image_url || w.imageBase64) && (
-                          <img 
-                            src={w.image_url || w.imageBase64} 
-                            alt={w.name} 
-                            className="w-16 h-12 object-cover rounded border border-neutral-600" 
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="font-semibold text-sm">{w.name}</div>
-                          <div className="text-xs text-neutral-300">Preço: R$ {w.price}</div>
-                          <div className="text-xs text-neutral-300">
-                            Dano: {w.damage ?? '—'} — Munição: {w.ammoType ?? w.ammo_type ?? '—'}
-                          </div>
-                          <div className="text-xs text-neutral-300">
-                            Pente: {w.magCapacity ?? w.mag_capacity ?? '—'}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <button 
-                            className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                            onClick={() => openBuyModal(s.id, wid)}
-                          >
-                            Comprar
-                          </button>
-                          {isAdmin && (
-                            <>
-                              <button 
-                                className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                                onClick={() => {
-                                  if (connectedSupabase) {
-                                    alert('Funcionalidade Supabase em desenvolvimento');
-                                  } else {
-                                    removeWeaponFromStandLocal(s.id, wid);
-                                  }
-                                }}
-                              >
-                                Remover
-                              </button>
-                              <button 
-                                className="px-2 py-1 rounded bg-red-700 border border-red-600 text-xs" 
-                                onClick={() => {
-                                  if (!confirm('Excluir arma global (GM)?')) return;
-                                  if (connectedSupabase) {
-                                    alert('Funcionalidade Supabase em desenvolvimento');
-                                  } else { 
-                                    deleteWeaponLocal(wid); 
-                                    alert('Arma excluída.'); 
-                                  }
-                                }}
-                              >
-                                Excluir
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-3 flex gap-2">
-                {isAdmin && (
-                  <>
-                    <button 
-                      className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                      onClick={() => {
-                        if (connectedSupabase) {
-                          alert('Funcionalidade Supabase em desenvolvimento');
-                        } else {
-                          gmRandomizeStandLocal(s.id);
-                        }
-                      }}
-                    >
-                      Randomizar (GM)
-                    </button>
-                    <AddWeaponToStandDropdown 
-                      stand={s} 
-                      weapons={state.weapons} 
-                      onAdd={(sid, wid) => {
-                        if (connectedSupabase) {
-                          alert('Funcionalidade Supabase em desenvolvimento');
-                        } else {
-                          addWeaponToStandLocal(sid, wid);
-                        }
-                      }} 
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button 
-          className="absolute right-0 top-10 z-20 px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-          onClick={() => scrollCarousel('next')}
-        >
-          ▶
-        </button>
-      </div>
-
-      {isAdmin && (
-        <div className="bg-neutral-700 p-4 rounded shadow border border-neutral-600 mb-4 mt-6">
-          <h3 className="font-semibold mb-2">Criar arma (GM)</h3>
-          <form onSubmit={createWeapon} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              placeholder="Nome (ex: AK-47)" 
-              value={form.name} 
-              onChange={e => setForm({ ...form, name: e.target.value })} 
-            />
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              placeholder="Dano (ex: 30)" 
-              type="number" 
-              value={form.damage} 
-              onChange={e => setForm({ ...form, damage: e.target.value })} 
-            />
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              placeholder="Capacidade do pente (ex: 30)" 
-              type="number" 
-              value={form.magCapacity} 
-              onChange={e => setForm({ ...form, magCapacity: e.target.value })} 
-            />
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              placeholder="Tipo de munição (ex: 7.62mm)" 
-              value={form.ammoType} 
-              onChange={e => setForm({ ...form, ammoType: e.target.value })} 
-            />
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              placeholder="Preço (ex: 1200)" 
-              type="number" 
-              value={form.price} 
-              onChange={e => setForm({ ...form, price: e.target.value })} 
-            />
-            <input 
-              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-              type="file" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-            />
-            <div className="col-span-1 sm:col-span-3 flex gap-2">
-              <button className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" type="submit">
-                Criar arma
-              </button>
-              <div className="text-sm text-neutral-300">
-                Campos: Nome, Dano, Capacidade do pente, Tipo de munição, Preço, Imagem.
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <BuyModal 
-        open={buyModal.open} 
-        standId={buyModal.standId} 
-        weaponId={buyModal.weaponId} 
-        onClose={closeBuyModal} 
-        buyerOptions={buyerOptions} 
-        selectedBuyerInv={selectedBuyerInv} 
-        setSelectedBuyerInv={setSelectedBuyerInv} 
-        confirmPurchase={confirmPurchase} 
-        weapon={state.weapons[buyModal.weaponId]} 
-      />
-    </div>
-  );
-}
-
-// Helper Components
-function AddWeaponToStandDropdown({ stand, weapons, onAdd }) {
-  const available = Object.values(weapons).filter(w => !stand.weaponIds.includes(w.id));
-  return (
-    <div>
-      <select 
-        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-        onChange={(e) => { 
-          if (e.target.value) onAdd(stand.id, e.target.value); 
-          e.target.value = ''; 
-        }}
-      >
-        <option value="">Adicionar arma ao stand</option>
-        {available.map(w => (
-          <option key={w.id} value={w.id}>
-            {w.name} — R$ {w.price}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function BuyModal({ open, standId, weaponId, onClose, buyerOptions, selectedBuyerInv, setSelectedBuyerInv, confirmPurchase, weapon }) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-      <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
-        <h3 className="text-lg font-bold mb-2">Comprar arma</h3>
-        {weapon ? (
-          <div className="mb-3">
-            <div className="font-semibold">{weapon.name}</div>
-            {(weapon.image_url || weapon.imageBase64) && (
-              <img 
-                src={weapon.image_url || weapon.imageBase64} 
-                alt={weapon.name} 
-                className="w-full h-28 object-cover rounded my-2" 
-              />
-            )}
-            <div className="text-sm text-neutral-300">Preço: R$ {weapon.price}</div>
-            <div className="text-sm text-neutral-300">
-              Dano: {weapon.damage ?? '—'} — Munição: {weapon.ammoType ?? weapon.ammo_type ?? '—'}
-            </div>
-            <div className="text-sm text-neutral-300">
-              Pente: {weapon.magCapacity ?? weapon.mag_capacity ?? '—'}
-            </div>
-          </div>
-        ) : (
-          <div className="text-neutral-300">Carregando arma...</div>
-        )}
-
-        <div className="mb-2">
-          <label className="block text-sm text-neutral-300">Debitar de:</label>
-          <select 
-            className="border px-2 py-1 w-full bg-neutral-700 text-white border-neutral-600" 
-            value={selectedBuyerInv || ''} 
-            onChange={(e) => setSelectedBuyerInv(e.target.value)}
-          >
-            <option value="">Selecione inventário</option>
-            {buyerOptions.map(b => (
-              <option key={b.id} value={b.id}>
-                {b.name} — Saldo: R$ {b.money}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button 
-            className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
-            onClick={onClose}
-          >
-            Cancelar
-          </button>
-          <button 
-            className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-            onClick={confirmPurchase}
-          >
-            Confirmar compra
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1618,8 +1279,9 @@ useEffect(() => {
           type: inv.type, 
           wallpaper: inv.wallpaper, 
           money: inv.money || 0, 
-          fixedCategories: [], 
-          custom: {} 
+          fixedCategories: inv.fixed_categories || [], 
+          custom: {},
+          meta: { status: inv.status || '', notes: inv.notes || '' }
         };
       });
 
@@ -1809,11 +1471,42 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-neutral-800 text-white">
       <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
-        <h1 className="text-2xl font-bold">Inventários & Loja - Completo</h1>
+        <h1 className="text-2xl font-bold">Inventários & Loja — Completo</h1>
         <div className="flex items-center gap-3">
           {supabase && !connectedSupabase && (
             <button 
               className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+
+  // --- Supabase write helpers (injected) ---
+  async function updateInventoryCustom(invId, newCustom) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('inventories').update({ custom: newCustom }).eq('id', invId);
+      if (error) {
+        console.error('Erro ao atualizar inventário:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateInventoryCustom unexpected', e);
+      return false;
+    }
+  }
+
+  async function updateCategoryName(categoryId, newName) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('categories').update({ name: newName }).eq('id', categoryId);
+      if (error) {
+        console.error('Erro ao atualizar categoria:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateCategoryName unexpected', e);
+      return false;
+    }
+  }
 
 
               onClick={loadFromSupabase}
@@ -1922,4 +1615,23 @@ useEffect(() => {
       />
     </div>
   );
+}
+
+ return (
+    <div>
+      {loading && <p>Carregando dados...</p>}
+      <Inventory inventories={inventories} />
+      <Shop categories={categories} items={items} weapons={weapons} />
+    </div>
+  );
+}
+
+// 5️⃣ Função utilitária shuffleArray → fora da função App
+function shuffleArray(arr) { 
+  const a = [...arr]; 
+  for (let i = a.length - 1; i > 0; i--) { 
+    const j = Math.floor(Math.random() * (i + 1)); 
+    [a[i], a[j]] = [a[j], a[i]]; 
+  } 
+  return a; 
 }
