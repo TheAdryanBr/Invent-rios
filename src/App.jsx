@@ -302,159 +302,6 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
 // ---------- Main App ----------
 {
   const [state, setState] = useState(MOCK_STATE);
-
-  // --- Supabase integration helpers (injected, no-duplicates) ---
-  async function loadFromSupabase() {
-    async function loadTable(name, mockData = []) {
-      const { data, error } = await supabase.from(name).select('*');
-      if (error) {
-        console.error(`${name.toUpperCase()} ERROR:`, error);
-        return mockData;
-      }
-      if ((!data || data.length === 0) && mockData && mockData.length > 0) {
-        console.log(`${name.toUpperCase()} vazio → populando com MOCK_STATE`);
-        try {
-          await supabase.from(name).insert(mockData);
-        } catch (e) {
-          console.warn('Erro ao popular tabela', name, e);
-        }
-        return mockData;
-      }
-      return data || mockData;
-    }
-
-    try {
-      const users = await loadTable('users', MOCK_STATE.users || []);
-      const inventoriesMockArr = Object.values(MOCK_STATE.inventories || {});
-      const inventoriesArr = await loadTable('inventories', inventoriesMockArr);
-      const categories = await loadTable('categories', []);
-      const items = await loadTable('items', []);
-      const weaponsArr = await loadTable('weapons', []);
-      const stands = await loadTable('stands', []);
-      const stand_weapons = await loadTable('stand_weapons', []);
-
-      const inventoriesObj = {};
-      (inventoriesArr || []).forEach(inv => {
-        inventoriesObj[inv.id] = {
-          id: inv.id,
-          name: inv.name,
-          ownerId: inv.owner_id ?? inv.ownerId ?? null,
-          type: inv.type,
-          wallpaper: inv.wallpaper,
-          money: inv.money ?? 0,
-          fixedCategories: inv.fixed_categories || inv.fixedCategories || [],
-          custom: inv.custom || {}
-        };
-      });
-
-      setState(prev => ({
-        ...prev,
-        users: users || MOCK_STATE.users,
-        inventories: inventoriesObj,
-        categories: categories || [],
-        items: items || [],
-        weapons: Array.isArray(weaponsArr) ? weaponsArr : [],
-        shop: { stands: stands || [] },
-        stand_weapons: stand_weapons || []
-      }));
-
-      setConnectedSupabase(true);
-    } catch (err) {
-      console.error('Erro em loadFromSupabase:', err);
-    }
-  }
-
-  async function updateInventoryCustom(invId, newCustom) {
-    const { error } = await supabase
-      .from('inventories')
-      .update({ custom: newCustom })
-      .eq('id', invId);
-
-    if (error) {
-      console.error('Erro ao atualizar inventário:', error);
-      return false;
-    }
-    setState(prev => ({
-      ...prev,
-      inventories: {
-        ...prev.inventories,
-        [invId]: {
-          ...prev.inventories[invId],
-          custom: newCustom
-        }
-      }
-    }));
-    return true;
-  }
-
-  async function updateCategoryName(categoryId, newName) {
-    const { error } = await supabase
-      .from('categories')
-      .update({ name: newName })
-      .eq('id', categoryId);
-
-    if (error) {
-      console.error('Erro ao atualizar categoria:', error);
-      return false;
-    }
-
-    setState(prev => ({
-      ...prev,
-      categories: (prev.categories || []).map(cat => (cat.id === categoryId ? { ...cat, name: newName } : cat))
-    }));
-    return true;
-  }
-
-  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
-    if (!supabase) throw new Error('Supabase não configurado');
-
-    const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `w_${Date.now()}`;
-    const bucket = 'weapons';
-    let image_url = null;
-
-    try {
-      if (imageFile) {
-        const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-        const path = `weapons/${id}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from(bucket).upload(path, imageFile, { upsert: true });
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
-        image_url = urlData?.publicUrl ?? null;
-      }
-
-      const payload = {
-        id,
-        name,
-        damage,
-        mag_capacity: magCapacity,
-        ammo_type: ammoType,
-        price,
-        image_url
-      };
-
-      const { data, error } = await supabase.from('weapons').insert([payload], { returning: 'representation' });
-
-      if (error) {
-        if (image_url && imageFile) {
-          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-          const path = `weapons/${id}.${ext}`;
-          try { await supabase.storage.from(bucket).remove([path]); } catch (e) { console.warn('Cleanup failed', e); }
-        }
-        throw error;
-      }
-
-      await loadFromSupabase();
-      return Array.isArray(data) ? data[0] : data;
-    } catch (err) {
-      console.error('Erro em createWeaponSupabase:', err);
-      throw err;
-    }
-  }
-
-  // safe helpers
-  const safeWeapons = (state && state.weapons) ? state.weapons : [];
-  const safeInventoriesObj = (state && state.inventories) ? state.inventories : {};
-
   const [view, setView] = useState('menu'); // menu | inventory | shop
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -499,7 +346,109 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   }
 
   // ---------- Supabase helpers ----------
-  
+  async function loadFromSupabase(){
+    if(!supabase) {
+      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+      return false;
+    }
+
+    try{
+      const [
+        {data: users},
+        {data: invs},
+        {data: cats},
+        {data: items},
+        {data: weapons},
+        {data: stands},
+        {data: stand_weapons}
+      ] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('inventories').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('items').select('*'),
+        supabase.from('weapons').select('*'),
+        supabase.from('stands').select('*'),
+        supabase.from('stand_weapons').select('*')
+      ]);
+
+      const weaponsMap = {};
+      (weapons||[]).forEach(w=>{ weaponsMap[w.id] = {...w}; });
+
+      const invMap = {};
+      (invs||[]).forEach(inv => {
+        invMap[inv.id] = { 
+          id: inv.id, 
+          name: inv.name, 
+          ownerId: inv.owner_user_id, 
+          type: inv.type, 
+          wallpaper: inv.wallpaper, 
+          money: inv.money || 0, 
+          fixedCategories: [], 
+          custom: {} 
+        };
+      });
+
+      (cats||[]).forEach(c => {
+        if(!invMap[c.inventory_id]) return;
+        const parent = c.parent_fixed || 'Mochila';
+        const inv = invMap[c.inventory_id];
+        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
+        if(!inv.custom[parent]) inv.custom[parent] = [];
+        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
+      });
+
+      (items||[]).forEach(it => {
+        const cat = (cats||[]).find(c=> c.id === it.category_id);
+        if(!cat) return;
+        const inv = invMap[cat.inventory_id];
+        if(!inv) return;
+        const parent = cat.parent_fixed || 'Mochila';
+        const catList = inv.custom[parent] || [];
+        const catObj = catList.find(cc => cc.id === cat.id);
+        const itemObj = { 
+          id: it.id, 
+          name: it.name, 
+          qty: it.qty, 
+          desc: it.metadata?.description || '', 
+          type: it.type || 'item', 
+          metadata: it.metadata || {} 
+        };
+        if(catObj) catObj.items.push(itemObj);
+      });
+
+      const shop = { 
+        stands: (stands||[]).map(s=> ({ 
+          id: s.id, 
+          name: s.name, 
+          slots: s.slots, 
+          weaponIds: [] 
+        })) 
+      };
+
+      (stand_weapons||[]).forEach(sw => {
+        const st = shop.stands.find(s=> s.id === sw.stand_id);
+        if(st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
+      });
+
+      const nextState = { 
+        currentUser: state.currentUser, 
+        users: users||[], 
+        inventories: invMap, 
+        shop, 
+        weapons: weaponsMap 
+      };
+
+      setState(nextState);
+      setConnectedSupabase(true);
+      setupRealtime();
+      return true;
+
+    }catch(err){ 
+      console.error('loadFromSupabase', err); 
+      alert('Erro ao carregar dados do Supabase. Veja console.'); 
+      return false; 
+    }
+  }
 
   function setupRealtime(){ 
     if(!supabase) return; 
@@ -518,7 +467,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   }
 
   // More Supabase helpers would go here...
-  ) {
+  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
   if (!supabase) throw new Error('Supabase não configurado');
 
   // gerar id no cliente (UUID). Usa crypto.randomUUID se disponível, senão fallback timestamp
@@ -598,6 +547,39 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
           {supabase && !connectedSupabase && (
             <button 
               className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+
+  // --- Supabase write helpers (injected) ---
+  async function updateInventoryCustom(invId, newCustom) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('inventories').update({ custom: newCustom }).eq('id', invId);
+      if (error) {
+        console.error('Erro ao atualizar inventário:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateInventoryCustom unexpected', e);
+      return false;
+    }
+  }
+
+  async function updateCategoryName(categoryId, newName) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('categories').update({ name: newName }).eq('id', categoryId);
+      if (error) {
+        console.error('Erro ao atualizar categoria:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateCategoryName unexpected', e);
+      return false;
+    }
+  }
+
+
               onClick={loadFromSupabase}
             >
               Conectar Supabase
@@ -870,8 +852,13 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
           i
         )
       }));
+      _newCustomForSave = inv.custom;
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
+  if (connectedSupabase && _newCustomForSave) {
+    updateInventoryCustom(inventory.id, _newCustomForSave).catch(e=>console.error('Erro salvando no supabase:', e));
+  }
+
   }
 
   // Transfer handler
@@ -958,12 +945,16 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   function deleteCategory(catId) {
     if (!confirm('Excluir categoria e todos os itens?')) return;
 
+    let _newCustomForSave = null;
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.custom = { ...(inv.custom || {}) };
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).filter(c => c.id !== catId);
+      _newCustomForSave = inv.custom;
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
+    if (connectedSupabase && _newCustomForSave) { updateInventoryCustom(inventory.id, _newCustomForSave).catch(e=>console.error('Erro salvar deleteCategory', e)); }
+
   }
 
   // Drag & Drop handlers
