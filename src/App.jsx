@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from "./lib/supabase";
+import TransferModal from "./components/TransferModal";
+import { v4 as uuidv4 } from 'uuid';
 
 // Mock Supabase client - substitua pela sua configuração real
 const supabase = {
