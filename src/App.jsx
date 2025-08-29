@@ -272,6 +272,90 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     setTargetCatForNewItem(list.length > 0 ? list[0].id : null);
   }, [selectedFixed, inventory.custom]);
 
+  // ... (keep existing functions like createCategory, createItem, etc.)
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-2xl font-bold">{inventory.name} — Inventário</h2>
+        <div className="flex gap-2">
+          <BackButton onClick={onBack} />
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-6">
+        <aside className="w-full md:w-56 bg-neutral-900 p-3 rounded shadow border border-neutral-700">
+          <h3 className="font-semibold mb-2 text-white">Categorias</h3>
+          <div className="flex flex-col gap-2">
+            {(inventory.fixedCategories || []).map((cat, idx) => (
+              <div key={cat} className="flex items-center gap-2">
+                <button 
+                  className={`text-left p-2 rounded w-full text-white ${
+                    cat === selectedFixed ? 'bg-neutral-700' : 'hover:bg-neutral-800'
+                  }`} 
+                  onClick={() => setSelectedFixed(cat)}
+                >
+                  {cat}
+                </button>
+                {(isOwner || isAdmin) && (
+                  <button 
+                    className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+                    onClick={() => { 
+                      const nn = prompt('Novo nome:', cat); 
+                      if (nn) renameFixedCategory(idx, nn); 
+                    }}
+                  >
+                    Renomear
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <section className="flex-1">
+          <div className="bg-neutral-900 p-4 rounded shadow border border-neutral-700 min-h-[300px]">
+            <h4 className="font-semibold mb-3">{selectedFixed}</h4>
+
+            {((selectedFixed || '').toLowerCase().includes('moch') ||
+              (selectedFixed || '').toLowerCase().includes('malet') ||
+              (selectedFixed || '').toLowerCase().includes('porta')) ? (
+              <div>
+                <p className="text-sm text-neutral-400 mb-2">
+                  Crie sub-categorias e itens dentro delas. Arraste itens para organizar.
+                </p>
+
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {inventory.custom?.[selectedFixed] && Array.isArray(inventory.custom[selectedFixed]) && inventory.custom[selectedFixed].length > 0 ? (
+                    inventory.custom[selectedFixed].map(cat => (
+                      <div
+                        key={cat.id}
+                        className="border border-neutral-700 rounded p-2 bg-neutral-800"
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={(e) => handleDrop(e, cat.id)}
+                      >
+                        {/* ... (keep existing category rendering) ... */}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados. Check console for 'Custom Data:'.</p>
+                  )}
+                </div>
+
+                {/* ... (keep existing create category/item section) ... */}
+              </div>
+            ) : (
+              {/* ... (keep existing non-custom category rendering) ... */}
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* ... (keep existing modals) ... */}
+    </div>
+  );
+}
+
   async function createCategory() {
     if (!newCatName) return alert('Digite o nome da nova categoria');
 
