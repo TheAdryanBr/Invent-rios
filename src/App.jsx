@@ -303,7 +303,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
 {
   const [state, setState] = useState(MOCK_STATE);
 
-  // --- Supabase integration helpers (injected) ---
+  // --- Supabase integration helpers (injected, no-duplicates) ---
   async function loadFromSupabase() {
     async function loadTable(name, mockData = []) {
       const { data, error } = await supabase.from(name).select('*');
@@ -499,109 +499,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   }
 
   // ---------- Supabase helpers ----------
-  async function loadFromSupabase(){
-    if(!supabase) {
-      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
-      return false;
-    }
-
-    try{
-      const [
-        {data: users},
-        {data: invs},
-        {data: cats},
-        {data: items},
-        {data: weapons},
-        {data: stands},
-        {data: stand_weapons}
-      ] = await Promise.all([
-        supabase.from('users').select('*'),
-        supabase.from('inventories').select('*'),
-        supabase.from('categories').select('*'),
-        supabase.from('items').select('*'),
-        supabase.from('weapons').select('*'),
-        supabase.from('stands').select('*'),
-        supabase.from('stand_weapons').select('*')
-      ]);
-
-      const weaponsMap = {};
-      (weapons||[]).forEach(w=>{ weaponsMap[w.id] = {...w}; });
-
-      const invMap = {};
-      (invs||[]).forEach(inv => {
-        invMap[inv.id] = { 
-          id: inv.id, 
-          name: inv.name, 
-          ownerId: inv.owner_user_id, 
-          type: inv.type, 
-          wallpaper: inv.wallpaper, 
-          money: inv.money || 0, 
-          fixedCategories: [], 
-          custom: {} 
-        };
-      });
-
-      (cats||[]).forEach(c => {
-        if(!invMap[c.inventory_id]) return;
-        const parent = c.parent_fixed || 'Mochila';
-        const inv = invMap[c.inventory_id];
-        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
-        if(!inv.custom[parent]) inv.custom[parent] = [];
-        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
-      });
-
-      (items||[]).forEach(it => {
-        const cat = (cats||[]).find(c=> c.id === it.category_id);
-        if(!cat) return;
-        const inv = invMap[cat.inventory_id];
-        if(!inv) return;
-        const parent = cat.parent_fixed || 'Mochila';
-        const catList = inv.custom[parent] || [];
-        const catObj = catList.find(cc => cc.id === cat.id);
-        const itemObj = { 
-          id: it.id, 
-          name: it.name, 
-          qty: it.qty, 
-          desc: it.metadata?.description || '', 
-          type: it.type || 'item', 
-          metadata: it.metadata || {} 
-        };
-        if(catObj) catObj.items.push(itemObj);
-      });
-
-      const shop = { 
-        stands: (stands||[]).map(s=> ({ 
-          id: s.id, 
-          name: s.name, 
-          slots: s.slots, 
-          weaponIds: [] 
-        })) 
-      };
-
-      (stand_weapons||[]).forEach(sw => {
-        const st = shop.stands.find(s=> s.id === sw.stand_id);
-        if(st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
-      });
-
-      const nextState = { 
-        currentUser: state.currentUser, 
-        users: users||[], 
-        inventories: invMap, 
-        shop, 
-        weapons: weaponsMap 
-      };
-
-      setState(nextState);
-      setConnectedSupabase(true);
-      setupRealtime();
-      return true;
-
-    }catch(err){ 
-      console.error('loadFromSupabase', err); 
-      alert('Erro ao carregar dados do Supabase. Veja console.'); 
-      return false; 
-    }
-  }
+  
 
   function setupRealtime(){ 
     if(!supabase) return; 
@@ -620,7 +518,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   }
 
   // More Supabase helpers would go here...
-  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
+  ) {
   if (!supabase) throw new Error('Supabase não configurado');
 
   // gerar id no cliente (UUID). Usa crypto.randomUUID se disponível, senão fallback timestamp
@@ -2048,3 +1946,4 @@ function shuffleArray(arr) {
   } 
   return a; 
 }
+
