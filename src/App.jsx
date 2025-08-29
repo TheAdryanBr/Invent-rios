@@ -257,6 +257,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
 
   // Reset when inventory changes
   useEffect(() => {
+    console.log('Inventory data:', inventory);
     setSelectedFixed(inventory.fixedCategories?.[0] || 'Mochila');
     setStatusText(inventory.meta?.status || '');
     setNotesText(inventory.meta?.notes || '');
@@ -269,6 +270,8 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
 
   useEffect(() => {
     const list = inventory.custom?.[selectedFixed] || [];
+    console.log('Selected Fixed:', selectedFixed);
+    console.log('Custom Data:', inventory.custom);
     setTargetCatForNewItem(list.length > 0 ? list[0].id : null);
   }, [selectedFixed, inventory.custom]);
 
@@ -298,6 +301,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         inv.custom = { ...(inv.custom || {}) };
         if (!inv.custom[selectedFixed]) inv.custom[selectedFixed] = [];
         inv.custom[selectedFixed].push({ id: cat.id, name: cat.name, items: [] });
+        console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     } else {
@@ -306,6 +310,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         const inv = { ...prev.inventories[inventory.id] };
         inv.custom = { ...(inv.custom || {}) };
         inv.custom[selectedFixed] = [...(inv.custom[selectedFixed] || []), cat];
+        console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     }
@@ -341,6 +346,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
           c.id === targetCatForNewItem ? { ...c, items: [...c.items, { id: item.id, name: item.name, qty: item.qty, desc: item.metadata?.description || '', type: item.type, metadata: item.metadata }] } : c
         );
+        console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     } else {
@@ -357,6 +363,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
           c.id === targetCatForNewItem ? { ...c, items: [...c.items, item] } : c
         );
+        console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     }
@@ -394,6 +401,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
           it
         )
       }));
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
   }
@@ -424,6 +432,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
           it
         )
       }));
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
   }
@@ -447,6 +456,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       inv.custom[selectedFixed] = inv.custom[selectedFixed].map(c => 
         c.id === catId ? { ...c, items: c.items.filter(x => x.id !== itemId) } : c
       );
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
   }
@@ -484,6 +494,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       const inv = { ...prev.inventories[inventory.id] };
       inv.custom = { ...(inv.custom || {}) };
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).filter(c => c.id !== catId);
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
   }
@@ -530,6 +541,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
           c
         );
 
+        console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     } catch (err) { 
@@ -545,6 +557,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       const fixed = [...(inv.fixedCategories || [])];
       fixed[index] = newName;
       inv.fixedCategories = fixed;
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
     if (connectedSupabase) {
@@ -569,6 +582,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
         c.id === catId ? { ...c, name: newName } : c
       );
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
   }
@@ -586,6 +600,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       inv.meta = { ...(inv.meta || {}), status: statusText, notes: notesText };
+      console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
     alert('Salvo.');
@@ -643,132 +658,136 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                 </p>
 
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(inventory.custom?.[selectedFixed] || []).map(cat => (
-                    <div
-                      key={cat.id}
-                      className="border border-neutral-700 rounded p-2 bg-neutral-800"
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={(e) => handleDrop(e, cat.id)}
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <strong className="text-white">{cat.name}</strong>
-                        <div className="flex gap-2">
-                          {(isOwner || isAdmin) && (
-                            <>
-                              <button 
-                                className="text-xs border px-2 rounded bg-neutral-700 border-neutral-600" 
-                                onClick={() => { 
-                                  const nn = prompt('Novo nome da categoria:', cat.name); 
-                                  if (nn) renameCustomCategory(cat.id, nn); 
-                                }}
-                              >
-                                Renomear
-                              </button>
-                              <button 
-                                className="text-xs px-2 py-1 rounded bg-red-700 border border-red-600" 
-                                onClick={() => deleteCategory(cat.id)}
-                              >
-                                Excluir
-                              </button>
-                              <button 
-                                className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                                onClick={() => { 
-                                  setTransferCategoryId(cat.id); 
-                                  setTransferOpen(true); 
-                                }}
-                              >
-                                Transferir
-                              </button>
-                            </>
-                          )}
+                  {(inventory.custom?.[selectedFixed] || []).length > 0 ? (
+                    inventory.custom?.[selectedFixed].map(cat => (
+                      <div
+                        key={cat.id}
+                        className="border border-neutral-700 rounded p-2 bg-neutral-800"
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={(e) => handleDrop(e, cat.id)}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <strong className="text-white">{cat.name}</strong>
+                          <div className="flex gap-2">
+                            {(isOwner || isAdmin) && (
+                              <>
+                                <button 
+                                  className="text-xs border px-2 rounded bg-neutral-700 border-neutral-600" 
+                                  onClick={() => { 
+                                    const nn = prompt('Novo nome da categoria:', cat.name); 
+                                    if (nn) renameCustomCategory(cat.id, nn); 
+                                  }}
+                                >
+                                  Renomear
+                                </button>
+                                <button 
+                                  className="text-xs px-2 py-1 rounded bg-red-700 border border-red-600" 
+                                  onClick={() => deleteCategory(cat.id)}
+                                >
+                                  Excluir
+                                </button>
+                                <button 
+                                  className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+                                  onClick={() => { 
+                                    setTransferCategoryId(cat.id); 
+                                    setTransferOpen(true); 
+                                  }}
+                                >
+                                  Transferir
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        {(cat.items || []).map(it => {
-                          const itemIsWeapon = it.type === 'weapon' || (it.metadata && it.metadata.weapon_id);
-                          const weaponData = itemIsWeapon ? (state.weapons[it.metadata?.weapon_id] || null) : null;
+                        <div className="space-y-2">
+                          {(cat.items || []).map(it => {
+                            const itemIsWeapon = it.type === 'weapon' || (it.metadata && it.metadata.weapon_id);
+                            const weaponData = itemIsWeapon ? (state.weapons[it.metadata?.weapon_id] || null) : null;
 
-                          return (
-                            <div 
-                              key={it.id}
-                              className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', fromCat: cat.id, itemId: it.id }));
-                              }}
-                            >
-                              <div className="flex gap-3 items-center">
-                                {itemIsWeapon && (weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image) ? (
-                                  <img 
-                                    src={weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image} 
-                                    alt="img" 
-                                    className="w-12 h-8 object-cover rounded border border-neutral-600" 
-                                  />
-                                ) : null}
-                                <div>
-                                  <div className="font-semibold text-white">{it.name}</div>
-                                  <div className="text-sm text-neutral-300">
-                                    x{it.qty} {it.desc ? `— ${it.desc}` : ''}
+                            return (
+                              <div 
+                                key={it.id}
+                                className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', fromCat: cat.id, itemId: it.id }));
+                                }}
+                              >
+                                <div className="flex gap-3 items-center">
+                                  {itemIsWeapon && (weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image) ? (
+                                    <img 
+                                      src={weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image} 
+                                      alt="img" 
+                                      className="w-12 h-8 object-cover rounded border border-neutral-600" 
+                                    />
+                                  ) : null}
+                                  <div>
+                                    <div className="font-semibold text-white">{it.name}</div>
+                                    <div className="text-sm text-neutral-300">
+                                      x{it.qty} {it.desc ? `— ${it.desc}` : ''}
+                                    </div>
+                                    {itemIsWeapon && (
+                                      <div className="mt-2 text-xs text-neutral-300">
+                                        Dano: {it.metadata?.damage ?? weaponData?.damage ?? '—'} — 
+                                        Pente: {it.metadata?.magCurrent ?? '—'}/{it.metadata?.magCapacity ?? weaponData?.magCapacity ?? '—'} — 
+                                        Munição: {it.metadata?.ammoType ?? weaponData?.ammoType ?? '—'}
+                                      </div>
+                                    )}
                                   </div>
-                                  {itemIsWeapon && (
-                                    <div className="mt-2 text-xs text-neutral-300">
-                                      Dano: {it.metadata?.damage ?? weaponData?.damage ?? '—'} — 
-                                      Pente: {it.metadata?.magCurrent ?? '—'}/{it.metadata?.magCapacity ?? weaponData?.magCapacity ?? '—'} — 
-                                      Munição: {it.metadata?.ammoType ?? weaponData?.ammoType ?? '—'}
+                                </div>
+
+                                <div className="text-sm flex flex-col gap-2 items-end">
+                                  <div className="flex gap-1">
+                                    <button 
+                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+                                      onClick={() => {
+                                        setEditItem(it);
+                                        const wInfo = itemIsWeapon && it.metadata?.weapon_id ? 
+                                          state.weapons[it.metadata.weapon_id] : null;
+                                        setEditWeaponInfo(wInfo);
+                                        setEditOpen(true);
+                                      }}
+                                    >
+                                      Editar
+                                    </button>
+
+                                    {(isOwner || isAdmin) && (
+                                      <button 
+                                        className="px-2 py-1 rounded bg-red-700 border border-red-600" 
+                                        onClick={() => deleteItem(cat.id, it.id)}
+                                      >
+                                        Excluir
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {(it.type === 'weapon' || (it.metadata && it.metadata.weapon_id)) && (
+                                    <div className="flex gap-2">
+                                      <button 
+                                        className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                                        onClick={() => handleShoot(it)}
+                                      >
+                                        ATIRAR
+                                      </button>
+                                      <button 
+                                        className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                                        onClick={() => handleReload(it)}
+                                      >
+                                        Recarregar
+                                      </button>
                                     </div>
                                   )}
                                 </div>
                               </div>
-
-                              <div className="text-sm flex flex-col gap-2 items-end">
-                                <div className="flex gap-1">
-                                  <button 
-                                    className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                                    onClick={() => {
-                                      setEditItem(it);
-                                      const wInfo = itemIsWeapon && it.metadata?.weapon_id ? 
-                                        state.weapons[it.metadata.weapon_id] : null;
-                                      setEditWeaponInfo(wInfo);
-                                      setEditOpen(true);
-                                    }}
-                                  >
-                                    Editar
-                                  </button>
-
-                                  {(isOwner || isAdmin) && (
-                                    <button 
-                                      className="px-2 py-1 rounded bg-red-700 border border-red-600" 
-                                      onClick={() => deleteItem(cat.id, it.id)}
-                                    >
-                                      Excluir
-                                    </button>
-                                  )}
-                                </div>
-
-                                {(it.type === 'weapon' || (it.metadata && it.metadata.weapon_id)) && (
-                                  <div className="flex gap-2">
-                                    <button 
-                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                                      onClick={() => handleShoot(it)}
-                                    >
-                                      ATIRAR
-                                    </button>
-                                    <button 
-                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                                      onClick={() => handleReload(it)}
-                                    >
-                                      Recarregar
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados.</p>
+                  )}
                 </div>
 
                 {(isOwner || isAdmin) && (
@@ -1121,6 +1140,7 @@ export default function App() {
     }
 
     try {
+      console.log('Loading from Supabase...');
       const [
         { data: users },
         { data: invs },
@@ -1138,6 +1158,8 @@ export default function App() {
         supabase.from('stands').select('*'),
         supabase.from('stand_weapons').select('*')
       ]);
+
+      console.log('Supabase Data:', { users, invs, cats, items, weapons, stands, stand_weapons });
 
       const weaponsMap = {};
       (weapons || []).forEach(w => { weaponsMap[w.id] = { ...w }; });
