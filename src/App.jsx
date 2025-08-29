@@ -7,13 +7,13 @@ function shuffleArray(arr) {
   const a = [...arr]; 
   for (let i = a.length - 1; i > 0; i--) { 
     const j = Math.floor(Math.random() * (i + 1)); 
-    [a[i], a[j]] = [a[j], a[i]]; 
+    [a[i], a[j] = [a[j], a[i]]; 
   } 
   return a; 
 }
 
 // ---------- Small UI components ----------
-function BackButton({onClick}) {
+function BackButton({ onClick }) {
   return (
     <button className="px-3 py-1 rounded bg-neutral-700 text-white border border-neutral-600" onClick={onClick}>
       Voltar
@@ -21,19 +21,19 @@ function BackButton({onClick}) {
   );
 }
 
-function LoginModal({open, onClose, onLogin, users}) {
-  if(!open) return null;
+function LoginModal({ open, onClose, onLogin, users }) {
+  if (!open) return null;
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
       <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700 shadow-lg">
         <h2 className="text-xl font-bold mb-3">Login rápido</h2>
         <p className="text-sm mb-3 text-neutral-300">Escolha um perfil de teste (GM tem acesso a tudo).</p>
         <div className="flex flex-col gap-2">
-          {users.map(u=> (
+          {users.map(u => (
             <button 
               key={u.id} 
               className="text-left p-2 rounded bg-neutral-700 border border-neutral-600" 
-              onClick={()=>{ onLogin(u); onClose(); }}
+              onClick={() => { onLogin(u); onClose(); }}
             >
               {u.name} {u.role === 'gm' ? '(GM)' : ''}
             </button>
@@ -49,7 +49,6 @@ function LoginModal({open, onClose, onLogin, users}) {
   );
 }
 
-// Edit modal (for items/weapons)
 function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   const [name, setName] = useState(item?.name || '');
   const [qty, setQty] = useState(item?.qty || 1);
@@ -59,7 +58,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   const [ammoType, setAmmoType] = useState(item?.metadata?.ammoType || weaponInfo?.ammoType || '');
 
   useEffect(() => {
-    if(!open) return;
+    if (!open) return;
     setName(item?.name || '');
     setQty(item?.qty || 1);
     setDesc(item?.desc || '');
@@ -68,23 +67,21 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
     setAmmoType(item?.metadata?.ammoType || weaponInfo?.ammoType || '');
   }, [open, item, weaponInfo]);
 
-  if(!open) return null;
+  if (!open) return null;
   const isWeapon = !!(item?.type === 'weapon' || item?.metadata?.weapon_id);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
       <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
         <h3 className="text-lg font-bold mb-2">Editar {isWeapon ? 'arma' : 'item'}</h3>
-
         <div className="mb-2">
           <label className="block text-sm text-neutral-300">Nome</label>
           <input 
             className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
             value={name} 
-            onChange={(e)=> setName(e.target.value)} 
+            onChange={(e) => setName(e.target.value)} 
           />
         </div>
-
         <div className="mb-2">
           <label className="block text-sm text-neutral-300">Quantidade</label>
           <input 
@@ -92,19 +89,17 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
             type="number" 
             min="0" 
             value={qty} 
-            onChange={(e)=> setQty(Number(e.target.value))} 
+            onChange={(e) => setQty(Number(e.target.value))} 
           />
         </div>
-
         <div className="mb-2">
           <label className="block text-sm text-neutral-300">Descrição</label>
           <input 
             className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
             value={desc} 
-            onChange={(e)=> setDesc(e.target.value)} 
+            onChange={(e) => setDesc(e.target.value)} 
           />
         </div>
-
         {isWeapon && (
           <>
             <div className="mb-2">
@@ -112,7 +107,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={damage} 
-                onChange={(e)=> setDamage(e.target.value)} 
+                onChange={(e) => setDamage(e.target.value)} 
               />
             </div>
             <div className="mb-2">
@@ -120,7 +115,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={magCapacity} 
-                onChange={(e)=> setMagCapacity(e.target.value)} 
+                onChange={(e) => setMagCapacity(e.target.value)} 
               />
             </div>
             <div className="mb-3">
@@ -128,12 +123,11 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={ammoType} 
-                onChange={(e)=> setAmmoType(e.target.value)} 
+                onChange={(e) => setAmmoType(e.target.value)} 
               />
             </div>
           </>
         )}
-
         <div className="flex justify-end gap-2">
           <button 
             className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
@@ -143,7 +137,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
           </button>
           <button 
             className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-            onClick={()=>{
+            onClick={() => {
               onSave({
                 ...item,
                 name, qty, desc,
@@ -166,7 +160,6 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   );
 }
 
-// ShopView Component
 function ShopView({ state, onBack }) {
   const [selectedWeapon, setSelectedWeapon] = useState(null);
 
@@ -202,7 +195,6 @@ function ShopView({ state, onBack }) {
           </div>
         ))}
       </div>
-
       {selectedWeapon && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
           <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
@@ -233,7 +225,6 @@ function ShopView({ state, onBack }) {
   );
 }
 
-// InventoryView Component
 function InventoryView({ inventory, currentUser, state, updateState, onBack, connectedSupabase, loadFromSupabase }) {
   const [selectedFixed, setSelectedFixed] = useState(inventory.fixedCategories?.[0] || 'Mochila');
   const [editOpen, setEditOpen] = useState(false);
@@ -272,93 +263,8 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     setTargetCatForNewItem(list.length > 0 ? list[0].id : null);
   }, [selectedFixed, inventory.custom]);
 
-  // ... (keep existing functions like createCategory, createItem, etc.)
-
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{inventory.name} — Inventário</h2>
-        <div className="flex gap-2">
-          <BackButton onClick={onBack} />
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-6">
-        <aside className="w-full md:w-56 bg-neutral-900 p-3 rounded shadow border border-neutral-700">
-          <h3 className="font-semibold mb-2 text-white">Categorias</h3>
-          <div className="flex flex-col gap-2">
-            {(inventory.fixedCategories || []).map((cat, idx) => (
-              <div key={cat} className="flex items-center gap-2">
-                <button 
-                  className={`text-left p-2 rounded w-full text-white ${
-                    cat === selectedFixed ? 'bg-neutral-700' : 'hover:bg-neutral-800'
-                  }`} 
-                  onClick={() => setSelectedFixed(cat)}
-                >
-                  {cat}
-                </button>
-                {(isOwner || isAdmin) && (
-                  <button 
-                    className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                    onClick={() => { 
-                      const nn = prompt('Novo nome:', cat); 
-                      if (nn) renameFixedCategory(idx, nn); 
-                    }}
-                  >
-                    Renomear
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        <section className="flex-1">
-          <div className="bg-neutral-900 p-4 rounded shadow border border-neutral-700 min-h-[300px]">
-            <h4 className="font-semibold mb-3">{selectedFixed}</h4>
-
-            {((selectedFixed || '').toLowerCase().includes('moch') ||
-              (selectedFixed || '').toLowerCase().includes('malet') ||
-              (selectedFixed || '').toLowerCase().includes('porta')) ? (
-              <div>
-                <p className="text-sm text-neutral-400 mb-2">
-                  Crie sub-categorias e itens dentro delas. Arraste itens para organizar.
-                </p>
-
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {inventory.custom?.[selectedFixed] && Array.isArray(inventory.custom[selectedFixed]) && inventory.custom[selectedFixed].length > 0 ? (
-                    inventory.custom[selectedFixed].map(cat => (
-                      <div
-                        key={cat.id}
-                        className="border border-neutral-700 rounded p-2 bg-neutral-800"
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, cat.id)}
-                      >
-                        {/* ... (keep existing category rendering) ... */}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados. Check console for 'Custom Data:'.</p>
-                  )}
-                </div>
-
-                {/* ... (keep existing create category/item section) ... */}
-              </div>
-            ) : (
-              {/* ... (keep existing non-custom category rendering) ... */}
-            )}
-          </div>
-        </section>
-      </div>
-
-      {/* ... (keep existing modals) ... */}
-    </div>
-  );
-}
-
   async function createCategory() {
     if (!newCatName) return alert('Digite o nome da nova categoria');
-
     const catId = crypto.randomUUID ? crypto.randomUUID() : `cat_${Date.now()}`;
 
     if (connectedSupabase) {
@@ -398,7 +304,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
 
   async function createItem() {
     if (!newItemName || !targetCatForNewItem) return alert('Nome e categoria alvo necessários');
-
     const itemId = crypto.randomUUID ? crypto.randomUUID() : `it_${Date.now()}`;
 
     if (connectedSupabase) {
@@ -429,13 +334,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     } else {
-      const item = { 
-        id: itemId, 
-        name: newItemName, 
-        qty: Number(newItemQty) || 1, 
-        desc: newItemDesc || '' 
-      };
-
+      const item = { id: itemId, name: newItemName, qty: Number(newItemQty) || 1, desc: newItemDesc || '' };
       updateState(prev => {
         const inv = { ...prev.inventories[inventory.id] };
         inv.custom = { ...(inv.custom || {}) };
@@ -446,17 +345,13 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
     }
-
-    setNewItemName(''); 
-    setNewItemQty(1); 
-    setNewItemDesc('');
+    setNewItemName(''); setNewItemQty(1); setNewItemDesc('');
   }
 
   async function handleShoot(item) {
     const mag = (item.metadata && item.metadata.magCurrent) || 0;
     if (mag <= 0) return alert('Pente vazio. Recarregue.');
     const newMag = mag - 1;
-
     const newMetadata = { ...item.metadata, magCurrent: newMag };
 
     if (connectedSupabase) {
@@ -473,11 +368,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       inv.custom = { ...(inv.custom || {}) };
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => ({
         ...c,
-        items: c.items.map(it => 
-          it.id === item.id ? 
-          { ...it, metadata: newMetadata } : 
-          it
-        )
+        items: c.items.map(it => it.id === item.id ? { ...it, metadata: newMetadata } : it)
       }));
       console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
@@ -487,7 +378,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   async function handleReload(item) {
     const cap = (item.metadata && (item.metadata.magCapacity || item.metadata.mag_capacity)) || 0;
     if (cap <= 0) return alert('Capacidade do pente desconhecida.');
-
     const newMetadata = { ...item.metadata, magCurrent: cap };
 
     if (connectedSupabase) {
@@ -504,11 +394,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       inv.custom = { ...(inv.custom || {}) };
       inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => ({
         ...c,
-        items: c.items.map(it => 
-          it.id === item.id ? 
-          { ...it, metadata: newMetadata } : 
-          it
-        )
+        items: c.items.map(it => it.id === item.id ? { ...it, metadata: newMetadata } : it)
       }));
       console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
@@ -604,15 +490,11 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
         if (!moving) return prev;
 
         inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
-          c.id === fromCat ? 
-          { ...c, items: c.items.filter(x => x.id !== itemId) } : 
-          c
+          c.id === fromCat ? { ...c, items: c.items.filter(x => x.id !== itemId) } : c
         );
 
         inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => 
-          c.id === toCatId ? 
-          { ...c, items: [...c.items, moving] } : 
-          c
+          c.id === toCatId ? { ...c, items: [...c.items, moving] } : c
         );
 
         console.log('Updated Inventory:', inv);
@@ -729,7 +611,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                 </p>
 
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {inventory.custom?.[selectedFixed] && inventory.custom[selectedFixed].length > 0 ? (
+                  {inventory.custom?.[selectedFixed] && Array.isArray(inventory.custom[selectedFixed]) && inventory.custom[selectedFixed].length > 0 ? (
                     inventory.custom[selectedFixed].map(cat => (
                       <div
                         key={cat.id}
@@ -857,7 +739,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                       </div>
                     ))
                   ) : (
-                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados.</p>
+                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados. Check console for 'Custom Data:'.</p>
                   )}
                 </div>
 
@@ -1039,7 +921,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   );
 }
 
-// ---------- MOCK DATA ----------
 const MOCK_STATE = {
   currentUser: null,
   users: [
