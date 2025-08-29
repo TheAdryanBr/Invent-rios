@@ -3,237 +3,17 @@ import { supabase } from "./lib/supabase";
 import TransferModal from "./components/TransferModal";
 import { v4 as uuidv4 } from 'uuid';
 
-
-// Mock Supabase client - substitua pela sua configuração real
-const supabase = {
-  from: (table) => ({
-    select: () => Promise.resolve({ data: [], error: null }),
-    insert: () => Promise.resolve({ data: [], error: null }),
-    update: () => Promise.resolve({ error: null }),
-    eq: () => Promise.resolve({ error: null })
-  }),
-  storage: {
-    from: () => ({
-      upload: () => Promise.resolve({ error: null }),
-      getPublicUrl: () => ({ data: { publicUrl: '' } }),
-      remove: () => Promise.resolve({ error: null })
-    })
-  },
-  channel: () => ({
-    on: () => ({ 
-      on: () => ({ 
-        on: () => ({ 
-          on: () => ({ 
-            on: () => ({ 
-              on: () => ({ 
-                subscribe: () => {} 
-              }) 
-            }) 
-          }) 
-        }) 
-      }) 
-    })
-  })
-};
-
-// Componente TransferModal
-function TransferModal({ open, onClose, fromInventory, categoryId, inventories, onTransfer }) {
-  const [targetInventoryId, setTargetInventoryId] = useState('');
-  const [selectedItemId, setSelectedItemId] = useState('');
-  const [quantity, setQuantity] = useState(1);
-
-  if (!open) return null;
-
-  const fixedKey = Object.keys(fromInventory?.custom || {})[0];
-  const category = fromInventory?.custom?.[fixedKey]?.find(c => c.id === categoryId);
-  const availableItems = category?.items || [];
-  const selectedItem = availableItems.find(item => item.id === selectedItemId);
-
-  const targetOptions = Object.values(inventories).filter(inv => inv.id !== fromInventory.id);
-
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-      <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
-        <h3 className="text-lg font-bold mb-2">Transferir Item</h3>
-        
-        <div className="mb-3">
-          <label className="block text-sm text-neutral-300 mb-1">Item</label>
-          <select 
-            className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1"
-            value={selectedItemId}
-            onChange={(e) => setSelectedItemId(e.target.value)}
-          >
-            <option value="">Selecione um item</option>
-            {availableItems.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.name} (x{item.qty})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mb-3">
-          <label className="block text-sm text-neutral-300 mb-1">Quantidade</label>
-          <input 
-            type="number" 
-            min="1" 
-            max={selectedItem?.qty || 1}
-            className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1"
-            value={quantity}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="block text-sm text-neutral-300 mb-1">Destino</label>
-          <select 
-            className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1"
-            value={targetInventoryId}
-            onChange={(e) => setTargetInventoryId(e.target.value)}
-          >
-            <option value="">Selecione destino</option>
-            {targetOptions.map(inv => (
-              <option key={inv.id} value={inv.id}>
-                {inv.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button 
-            className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
-            onClick={onClose}
-          >
-            Cancelar
-          </button>
-          <button 
-            className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-            onClick={() => {
-              if (selectedItemId && targetInventoryId && quantity > 0) {
-                onTransfer({
-                  categoryId,
-                  itemId: selectedItemId,
-                  quantity,
-                  targetInventoryId
-                });
-                onClose();
-              }
-            }}
-          >
-            Transferir
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function shuffleArray(arr) { 
+  const a = [...arr]; 
+  for (let i = a.length - 1; i > 0; i--) { 
+    const j = Math.floor(Math.random() * (i + 1)); 
+    [a[i], a[j]] = [a[j], a[i]]; 
+  } 
+  return a; 
 }
 
-// Componente ShopView
-function ShopView({ shop, weapons, currentUser, state, updateState, onBack, connectedSupabase, createWeaponSupabase, loadFromSupabase }) {
-  const isAdmin = currentUser?.role === 'gm';
-  const [form, setForm] = useState({
-    name: '', 
-    damage: 0, 
-    magCapacity: 10, 
-    ammoType: '9mm', 
-    price: 1000, 
-    imageFile: null
-  });
-  const [buyModal, setBuyModal] = useState({ open: false, standId: null, weaponId: null });
-  const [selectedBuyerInv, setSelectedBuyerInv] = useState(null);
-  const carouselRef = useRef(null);
-
-  function handleFileChange(e) { 
-    setForm(prev => ({ ...prev, imageFile: e.target.files[0] })); 
-  }
-
-  async function createWeapon(e) {
-    e.preventDefault();
-    if (!isAdmin) return alert('Apenas GM pode criar armas');
-    if (!form.name) return alert('Nome obrigatório');
-
-    if (connectedSupabase) {
-      try {
-        await createWeaponSupabase({ 
-          name: form.name, 
-          damage: form.damage, 
-          magCapacity: form.magCapacity, 
-          ammoType: form.ammoType, 
-          price: form.price, 
-          imageFile: form.imageFile 
-        });
-        alert('Arma criada no Supabase');
-        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
-        await loadFromSupabase();
-      } catch (err) { 
-        console.error(err); 
-        alert('Erro ao criar arma no Supabase'); 
-      }
-    } else {
-      if (form.imageFile) {
-        const b64 = await readFileAsBase64(form.imageFile);
-        const id = `w_${Date.now()}`;
-        const weapon = { 
-          id, 
-          name: form.name, 
-          damage: Number(form.damage), 
-          magCapacity: Number(form.magCapacity), 
-          ammoType: form.ammoType, 
-          price: Number(form.price), 
-          imageBase64: b64 
-        };
-        updateState(prev => ({ ...prev, weapons: { ...prev.weapons, [id]: weapon } }));
-        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
-      } else {
-        alert('Envie uma imagem');
-      }
-    }
-  }
-
-  function readFileAsBase64(file) { 
-    return new Promise((res, rej) => { 
-      const reader = new FileReader(); 
-      reader.onload = () => res(reader.result); 
-      reader.onerror = rej; 
-      reader.readAsDataURL(file); 
-    }); 
-  }
-
-  function openBuyModal(standId, weaponId) { 
-    setBuyModal({ open: true, standId, weaponId }); 
-    setSelectedBuyerInv(null); 
-  }
-
-  function closeBuyModal() { 
-    setBuyModal({ open: false, standId: null, weaponId: null }); 
-  }
-
-  // JSX do modal de compra (assumindo que isso era o conteúdo pretendido para o modal de compra)
-  const BuyModalContent = buyModal.open ? (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
-      {/* Adicione o conteúdo do modal de compra aqui, pois estava incompleto no código original */}
-      <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
-        {/* Exemplo de conteúdo; ajuste conforme necessário */}
-        <h3 className="text-lg font-bold mb-2">Comprar Arma</h3>
-        {/* ... Outros elementos ... */}
-        <button onClick={closeBuyModal}>Fechar</button>
-      </div>
-    </div>
-  ) : null;
-
-  // Retorno principal do ShopView (o código original não tinha um return explícito; adicionei um placeholder)
-  return (
-    <div>
-      {/* Conteúdo da ShopView */}
-      {BuyModalContent}
-      {/* Adicione o resto da UI da loja aqui */}
-    </div>
-  );
-}
-
-// Small UI components
-function BackButton({ onClick }) {
+// ---------- Small UI components ----------
+function BackButton({onClick}) {
   return (
     <button className="px-3 py-1 rounded bg-neutral-700 text-white border border-neutral-600" onClick={onClick}>
       Voltar
@@ -241,19 +21,19 @@ function BackButton({ onClick }) {
   );
 }
 
-function LoginModal({ open, onClose, onLogin, users }) {
-  if (!open) return null;
+function LoginModal({open, onClose, onLogin, users}){
+  if(!open) return null;
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
       <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700 shadow-lg">
         <h2 className="text-xl font-bold mb-3">Login rápido</h2>
         <p className="text-sm mb-3 text-neutral-300">Escolha um perfil de teste (GM tem acesso a tudo).</p>
         <div className="flex flex-col gap-2">
-          {users.map(u => (
+          {users.map(u=> (
             <button 
               key={u.id} 
               className="text-left p-2 rounded bg-neutral-700 border border-neutral-600" 
-              onClick={() => { onLogin(u); onClose(); }}
+              onClick={()=>{ onLogin(u); onClose(); }}
             >
               {u.name} {u.role === 'gm' ? '(GM)' : ''}
             </button>
@@ -274,12 +54,13 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   const [name, setName] = useState(item?.name || '');
   const [qty, setQty] = useState(item?.qty || 1);
   const [desc, setDesc] = useState(item?.desc || '');
+  // weapon fields
   const [damage, setDamage] = useState((weaponInfo && (weaponInfo.damage || weaponInfo.damage === 0)) ? weaponInfo.damage : (item?.metadata?.damage || ''));
   const [magCapacity, setMagCapacity] = useState(item?.metadata?.magCapacity || item?.metadata?.mag_capacity || (weaponInfo?.magCapacity || ''));
   const [ammoType, setAmmoType] = useState(item?.metadata?.ammoType || weaponInfo?.ammoType || '');
 
-  useEffect(() => {
-    if (!open) return;
+  useEffect(()=> {
+    if(!open) return;
     setName(item?.name || '');
     setQty(item?.qty || 1);
     setDesc(item?.desc || '');
@@ -288,7 +69,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
     setAmmoType(item?.metadata?.ammoType || weaponInfo?.ammoType || '');
   }, [open, item, weaponInfo]);
 
-  if (!open) return null;
+  if(!open) return null;
   const isWeapon = !!(item?.type === 'weapon' || item?.metadata?.weapon_id);
 
   return (
@@ -301,7 +82,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
           <input 
             className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
             value={name} 
-            onChange={(e) => setName(e.target.value)} 
+            onChange={(e)=> setName(e.target.value)} 
           />
         </div>
 
@@ -312,7 +93,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
             type="number" 
             min="0" 
             value={qty} 
-            onChange={(e) => setQty(Number(e.target.value))} 
+            onChange={(e)=> setQty(Number(e.target.value))} 
           />
         </div>
 
@@ -321,7 +102,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
           <input 
             className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
             value={desc} 
-            onChange={(e) => setDesc(e.target.value)} 
+            onChange={(e)=> setDesc(e.target.value)} 
           />
         </div>
 
@@ -332,7 +113,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={damage} 
-                onChange={(e) => setDamage(e.target.value)} 
+                onChange={(e)=> setDamage(e.target.value)} 
               />
             </div>
             <div className="mb-2">
@@ -340,7 +121,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={magCapacity} 
-                onChange={(e) => setMagCapacity(e.target.value)} 
+                onChange={(e)=> setMagCapacity(e.target.value)} 
               />
             </div>
             <div className="mb-3">
@@ -348,7 +129,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
               <input 
                 className="w-full bg-neutral-700 border-neutral-600 border px-2 py-1" 
                 value={ammoType} 
-                onChange={(e) => setAmmoType(e.target.value)} 
+                onChange={(e)=> setAmmoType(e.target.value)} 
               />
             </div>
           </>
@@ -363,7 +144,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
           </button>
           <button 
             className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-            onClick={() => {
+            onClick={()=>{
               onSave({
                 ...item,
                 name, qty, desc,
@@ -386,7 +167,7 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   );
 }
 
-// Componente InventoryView
+// InventoryView Component
 function InventoryView({ inventory, currentUser, state, updateState, onBack, connectedSupabase, loadFromSupabase }) {
   const [selectedFixed, setSelectedFixed] = useState(inventory.fixedCategories?.[0] || 'Mochila');
   const [editOpen, setEditOpen] = useState(false);
@@ -429,6 +210,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     if (!newCatName) return alert('Digite o nome da nova categoria');
 
     if (connectedSupabase) {
+      // Implementar Supabase create category
       alert('Funcionalidade Supabase em desenvolvimento');
       return;
     }
@@ -447,6 +229,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     if (!newItemName || !targetCatForNewItem) return alert('Nome e categoria alvo necessários');
 
     if (connectedSupabase) {
+      // Implementar Supabase create item
       alert('Funcionalidade Supabase em desenvolvimento');
       return;
     }
@@ -738,7 +521,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{inventory.name} — Inventário</h2>
+        <h2 className="text-2xl font-bold">{inventory.name} - Inventário</h2>
         <div className="flex gap-2">
           <BackButton onClick={onBack} />
         </div>
@@ -1088,208 +871,531 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   );
 }
 
-// Supabase helpers
-async function loadFromSupabase() {
-  if (!supabase) {
-    alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
-    return false;
+// ShopView Component
+function ShopView({ shop, weapons, currentUser, state, updateState, onBack, connectedSupabase, createWeaponSupabase, loadFromSupabase }) {
+  const isAdmin = currentUser?.role === 'gm';
+  const [form, setForm] = useState({
+    name: '', 
+    damage: 0, 
+    magCapacity: 10, 
+    ammoType: '9mm', 
+    price: 1000, 
+    imageFile: null
+  });
+  const [buyModal, setBuyModal] = useState({ open: false, standId: null, weaponId: null });
+  const [selectedBuyerInv, setSelectedBuyerInv] = useState(null);
+  const carouselRef = useRef(null);
+
+  function handleFileChange(e) { 
+    setForm(prev => ({ ...prev, imageFile: e.target.files[0] })); 
   }
 
-  try {
-    const [
-      { data: users },
-      { data: invs },
-      { data: cats },
-      { data: items },
-      { data: weapons },
-      { data: stands },
-      { data: stand_weapons }
-    ] = await Promise.all([
-      supabase.from('users').select('*'),
-      supabase.from('inventories').select('*'),
-      supabase.from('categories').select('*'),
-      supabase.from('items').select('*'),
-      supabase.from('weapons').select('*'),
-      supabase.from('stands').select('*'),
-      supabase.from('stand_weapons').select('*')
-    ]);
+  async function createWeapon(e) {
+    e.preventDefault();
+    if (!isAdmin) return alert('Apenas GM pode criar armas');
+    if (!form.name) return alert('Nome obrigatório');
 
-    const weaponsMap = {};
-    (weapons || []).forEach(w => { weaponsMap[w.id] = { ...w }; });
-
-    const invMap = {};
-    (invs || []).forEach(inv => {
-      invMap[inv.id] = { 
-        id: inv.id, 
-        name: inv.name, 
-        ownerId: inv.owner_user_id, 
-        type: inv.type, 
-        wallpaper: inv.wallpaper, 
-        money: inv.money || 0, 
-        fixedCategories: [], 
-        custom: {},
-        meta: { status: '', notes: '' }
-      };
-    });
-
-    (cats || []).forEach(c => {
-      if (!invMap[c.inventory_id]) return;
-      const parent = c.parent_fixed || 'Mochila';
-      const inv = invMap[c.inventory_id];
-      inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
-      if (!inv.custom[parent]) inv.custom[parent] = [];
-      inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
-    });
-
-    (items || []).forEach(it => {
-      const cat = (cats || []).find(c => c.id === it.category_id);
-      if (!cat) return;
-      const inv = invMap[cat.inventory_id];
-      if (!inv) return;
-      const parent = cat.parent_fixed || 'Mochila';
-      const catList = inv.custom[parent] || [];
-      const catObj = catList.find(cc => cc.id === cat.id);
-      const itemObj = { 
-        id: it.id, 
-        name: it.name, 
-        qty: it.qty, 
-        desc: it.metadata?.description || '', 
-        type: it.type || 'item', 
-        metadata: it.metadata || {} 
-      };
-      if (catObj) catObj.items.push(itemObj);
-    });
-
-    const shop = { 
-      stands: (stands || []).map(s => ({ 
-        id: s.id, 
-        name: s.name, 
-        slots: s.slots, 
-        weaponIds: [] 
-      })) 
-    };
-
-    (stand_weapons || []).forEach(sw => {
-      const st = shop.stands.find(s => s.id === sw.stand_id);
-      if (st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
-    });
-
-    const nextState = { 
-      currentUser: state.currentUser, 
-      users: users || [], 
-      inventories: invMap, 
-      shop, 
-      weapons: weaponsMap 
-    };
-
-    setState(nextState);
-    setConnectedSupabase(true);
-    setupRealtime();
-    return true;
-
-  } catch (err) { 
-    console.error('loadFromSupabase', err); 
-    alert('Erro ao carregar dados do Supabase. Veja console.'); 
-    return false; 
-  }
-}
-
-function setupRealtime() { 
-  if (!supabase) return; 
-  try { 
-    supabase.channel('public-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventories' }, () => { loadFromSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => { loadFromSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => { loadFromSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'weapons' }, () => { loadFromSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stands' }, () => { loadFromSupabase(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stand_weapons' }, () => { loadFromSupabase(); })
-      .subscribe(); 
-  } catch (err) { 
-    console.error('realtime setup', err);
-  } 
-}
-
-// More Supabase helpers
-async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
-  if (!supabase) throw new Error('Supabase não configurado');
-
-  const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `w_${Date.now()}`;
-
-  let image_url = null;
-  const bucket = 'weapons';
-
-  try {
-    if (imageFile) {
-      const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-      const path = `weapons/${id}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(path, imageFile, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
-      image_url = urlData?.publicUrl ?? null;
-    }
-
-    const payload = {
-      id,
-      name,
-      damage,
-      mag_capacity: magCapacity,
-      ammo_type: ammoType,
-      price,
-      image_url
-    };
-
-    const { data, error } = await supabase
-      .from('weapons')
-      .insert([payload]);
-
-    if (error) {
-      if (image_url) {
-        try {
-          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-          const path = `weapons/${id}.${ext}`;
-          await supabase.storage.from(bucket).remove([path]);
-        } catch (e) {
-          console.warn('Erro ao limpar imagem após falha de insert:', e);
-        }
+    if (connectedSupabase) {
+      try {
+        await createWeaponSupabase({ 
+          name: form.name, 
+          damage: form.damage, 
+          magCapacity: form.magCapacity, 
+          ammoType: form.ammoType, 
+          price: form.price, 
+          imageFile: form.imageFile 
+        });
+        alert('Arma criada no Supabase');
+        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
+        await loadFromSupabase();
+      } catch (err) { 
+        console.error(err); 
+        alert('Erro ao criar arma no Supabase'); 
       }
-      throw error;
+    } else {
+      if (form.imageFile) {
+        const b64 = await readFileAsBase64(form.imageFile);
+        const id = `w_${Date.now()}`;
+        const weapon = { 
+          id, 
+          name: form.name, 
+          damage: Number(form.damage), 
+          magCapacity: Number(form.magCapacity), 
+          ammoType: form.ammoType, 
+          price: Number(form.price), 
+          imageBase64: b64 
+        };
+        updateState(prev => ({ ...prev, weapons: { ...prev.weapons, [id]: weapon } }));
+        setForm({ name: '', damage: 0, magCapacity: 10, ammoType: '9mm', price: 1000, imageFile: null });
+      } else {
+        alert('Envie uma imagem');
+      }
     }
-
-    if (typeof fetchAllData === 'function') {
-      try { fetchAllData(); } catch (e) { console.warn('fetchAllData falhou:', e); }
-    }
-
-    return (Array.isArray(data) && data[0]) ? data[0] : data;
-  } catch (err) {
-    console.error('Erro em createWeaponSupabase:', err);
-    throw err;
   }
+
+  function readFileAsBase64(file) { 
+    return new Promise((res, rej) => { 
+      const reader = new FileReader(); 
+      reader.onload = () => res(reader.result); 
+      reader.onerror = rej; 
+      reader.readAsDataURL(file); 
+    }); 
+  }
+
+  function openBuyModal(standId, weaponId) { 
+    setBuyModal({ open: true, standId, weaponId }); 
+    setSelectedBuyerInv(null); 
+  }
+
+  function closeBuyModal() { 
+    setBuyModal({ open: false, standId: null, weaponId: null }); 
+  }
+
+  const buyerOptions = Object.values(state.inventories).filter(inv => {
+    if (currentUser?.role === 'gm') return !!inv.ownerId;
+    if (!currentUser) return false;
+    return inv.ownerId === currentUser.id;
+  });
+
+  async function confirmPurchase() {
+    const { standId, weaponId } = buyModal;
+    const inv = state.inventories[selectedBuyerInv];
+    const weapon = state.weapons[weaponId];
+    if (!inv || !weapon) return alert('Dados inválidos');
+
+    if (connectedSupabase) {
+      alert('Funcionalidade de compra via Supabase em desenvolvimento');
+      return;
+    }
+
+    if ((inv.money || 0) < weapon.price) return alert('Saldo insuficiente');
+
+    updateState(prev => {
+      const next = { ...prev };
+      next.inventories[selectedBuyerInv].money = (next.inventories[selectedBuyerInv].money || 0) - weapon.price;
+      next.shop = { ...next.shop };
+      next.shop.stands = next.shop.stands.map(s => 
+        s.id === standId ? 
+        { ...s, weaponIds: s.weaponIds.filter(w => w !== weaponId) } : 
+        s
+      );
+
+      const invObj = next.inventories[selectedBuyerInv];
+      const parentFixed = invObj.fixedCategories.find(f => 
+        f.toLowerCase().includes('moch') || f.toLowerCase().includes('malet')
+      ) || invObj.fixedCategories[0];
+
+      if (!invObj.custom[parentFixed]) invObj.custom[parentFixed] = [];
+
+      let catObj = invObj.custom[parentFixed].find(c => 
+        c.name.toLowerCase().includes('arma')
+      ) || invObj.custom[parentFixed][0];
+
+      if (!catObj) { 
+        const newCat = { id: `cat_${Date.now()}`, name: 'Armas', items: [] }; 
+        invObj.custom[parentFixed].push(newCat); 
+        catObj = newCat; 
+      }
+
+      const itemId = `it_${Date.now()}`;
+      const item = { 
+        id: itemId, 
+        name: weapon.name, 
+        qty: 1, 
+        desc: '', 
+        type: 'weapon', 
+        metadata: { 
+          weapon_id: weapon.id, 
+          magCurrent: weapon.magCapacity || 0, 
+          magCapacity: weapon.magCapacity || 0, 
+          ammoType: weapon.ammoType || '', 
+          damage: weapon.damage || 0, 
+          image: weapon.imageBase64 || null 
+        } 
+      };
+      catObj.items.push(item);
+      return next;
+    });
+
+    alert('Compra realizada com sucesso');
+    closeBuyModal();
+  }
+
+  function addWeaponToStandLocal(standId, weaponId) { 
+    updateState(prev => { 
+      const next = { ...prev }; 
+      next.shop = { ...next.shop }; 
+      next.shop.stands = next.shop.stands.map(s => 
+        s.id === standId ? 
+        { ...s, weaponIds: s.weaponIds.includes(weaponId) ? s.weaponIds : [...s.weaponIds, weaponId].slice(0, s.slots) } : 
+        s
+      ); 
+      return next; 
+    }); 
+  }
+
+  function removeWeaponFromStandLocal(standId, weaponId) { 
+    updateState(prev => { 
+      const next = { ...prev }; 
+      next.shop = { ...next.shop }; 
+      next.shop.stands = next.shop.stands.map(s => 
+        s.id === standId ? 
+        { ...s, weaponIds: s.weaponIds.filter(w => w !== weaponId) } : 
+        s
+      ); 
+      return next; 
+    }); 
+  }
+
+  function deleteWeaponLocal(weaponId) {
+    if (!confirm('Excluir arma permanentemente (GM)?')) return;
+    updateState(prev => {
+      const next = { ...prev };
+      const wmap = { ...next.weapons };
+      delete wmap[weaponId];
+      next.weapons = wmap;
+      next.shop = { ...next.shop };
+      next.shop.stands = next.shop.stands.map(s => ({
+        ...s, 
+        weaponIds: s.weaponIds.filter(w => w !== weaponId)
+      }));
+      return next;
+    });
+  }
+
+  function scrollCarousel(direction = 'next') {
+    if (!carouselRef.current) return;
+    const el = carouselRef.current;
+    const amount = el.clientWidth * 0.8;
+    el.scrollBy({ 
+      left: direction === 'next' ? amount : -amount, 
+      behavior: 'smooth' 
+    });
+  }
+
+  function gmRandomizeStandLocal(standId) { 
+    const allWeaponIds = Object.keys(state.weapons); 
+    const weaponsInAnyStand = new Set(state.shop.stands.flatMap(s => s.weaponIds)); 
+    const available = allWeaponIds.filter(id => !weaponsInAnyStand.has(id)); 
+    const maxAllowed = Math.min(allWeaponIds.length, allWeaponIds.length >= 20 ? 12 : allWeaponIds.length); 
+
+    if (available.length === 0) return alert('Nenhuma arma disponível'); 
+
+    const count = Math.max(1, Math.min(maxAllowed, Math.floor(Math.random() * Math.min(available.length, maxAllowed)) + 1)); 
+    const chosen = shuffleArray(available).slice(0, count); 
+
+    updateState(prev => { 
+      const next = { ...prev }; 
+      next.shop = { ...next.shop }; 
+      next.shop.stands = next.shop.stands.map(s => 
+        s.id === standId ? 
+        { ...s, weaponIds: chosen.slice(0, s.slots) } : 
+        s
+      ); 
+      return next; 
+    }); 
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <h2 className="text-2xl font-bold">Loja (Stands)</h2>
+        <BackButton onClick={onBack} />
+      </div>
+
+      <div className="relative">
+        <button 
+          className="absolute left-0 top-10 z-20 px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+          onClick={() => scrollCarousel('prev')}
+        >
+          ◀
+        </button>
+
+        <div 
+          ref={carouselRef} 
+          className="flex gap-4 overflow-x-auto py-4 scroll-smooth"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {shop.stands.map(s => (
+            <div key={s.id} className="min-w-[320px] flex-shrink-0 bg-neutral-700 p-4 rounded shadow border border-neutral-600">
+              <div className="flex justify-between items-center mb-2">
+                <strong className="text-white">{s.name}</strong>
+                <div className="text-sm text-neutral-300">Slots: {s.slots}</div>
+              </div>
+
+              <div className="min-h-[140px] border border-neutral-700 rounded p-2 mb-2 bg-neutral-800">
+                <div className="grid grid-cols-2 gap-2">
+                  {s.weaponIds.length === 0 && (
+                    <div className="col-span-2 text-sm text-neutral-400">
+                      Nenhuma arma disponível neste stand.
+                    </div>
+                  )}
+                  {s.weaponIds.map(wid => {
+                    const w = state.weapons[wid];
+                    if (!w) return null;
+
+                    return (
+                      <div key={wid} className="border border-neutral-700 rounded p-2 text-white bg-neutral-800 flex gap-2">
+                        {(w.image_url || w.imageBase64) && (
+                          <img 
+                            src={w.image_url || w.imageBase64} 
+                            alt={w.name} 
+                            className="w-16 h-12 object-cover rounded border border-neutral-600" 
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="font-semibold text-sm">{w.name}</div>
+                          <div className="text-xs text-neutral-300">Preço: R$ {w.price}</div>
+                          <div className="text-xs text-neutral-300">
+                            Dano: {w.damage ?? '—'} — Munição: {w.ammoType ?? w.ammo_type ?? '—'}
+                          </div>
+                          <div className="text-xs text-neutral-300">
+                            Pente: {w.magCapacity ?? w.mag_capacity ?? '—'}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button 
+                            className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                            onClick={() => openBuyModal(s.id, wid)}
+                          >
+                            Comprar
+                          </button>
+                          {isAdmin && (
+                            <>
+                              <button 
+                                className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                                onClick={() => {
+                                  if (connectedSupabase) {
+                                    alert('Funcionalidade Supabase em desenvolvimento');
+                                  } else {
+                                    removeWeaponFromStandLocal(s.id, wid);
+                                  }
+                                }}
+                              >
+                                Remover
+                              </button>
+                              <button 
+                                className="px-2 py-1 rounded bg-red-700 border border-red-600 text-xs" 
+                                onClick={() => {
+                                  if (!confirm('Excluir arma global (GM)?')) return;
+                                  if (connectedSupabase) {
+                                    alert('Funcionalidade Supabase em desenvolvimento');
+                                  } else { 
+                                    deleteWeaponLocal(wid); 
+                                    alert('Arma excluída.'); 
+                                  }
+                                }}
+                              >
+                                Excluir
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                {isAdmin && (
+                  <>
+                    <button 
+                      className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
+                      onClick={() => {
+                        if (connectedSupabase) {
+                          alert('Funcionalidade Supabase em desenvolvimento');
+                        } else {
+                          gmRandomizeStandLocal(s.id);
+                        }
+                      }}
+                    >
+                      Randomizar (GM)
+                    </button>
+                    <AddWeaponToStandDropdown 
+                      stand={s} 
+                      weapons={state.weapons} 
+                      onAdd={(sid, wid) => {
+                        if (connectedSupabase) {
+                          alert('Funcionalidade Supabase em desenvolvimento');
+                        } else {
+                          addWeaponToStandLocal(sid, wid);
+                        }
+                      }} 
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button 
+          className="absolute right-0 top-10 z-20 px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+          onClick={() => scrollCarousel('next')}
+        >
+          ▶
+        </button>
+      </div>
+
+      {isAdmin && (
+        <div className="bg-neutral-700 p-4 rounded shadow border border-neutral-600 mb-4 mt-6">
+          <h3 className="font-semibold mb-2">Criar arma (GM)</h3>
+          <form onSubmit={createWeapon} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              placeholder="Nome (ex: AK-47)" 
+              value={form.name} 
+              onChange={e => setForm({ ...form, name: e.target.value })} 
+            />
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              placeholder="Dano (ex: 30)" 
+              type="number" 
+              value={form.damage} 
+              onChange={e => setForm({ ...form, damage: e.target.value })} 
+            />
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              placeholder="Capacidade do pente (ex: 30)" 
+              type="number" 
+              value={form.magCapacity} 
+              onChange={e => setForm({ ...form, magCapacity: e.target.value })} 
+            />
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              placeholder="Tipo de munição (ex: 7.62mm)" 
+              value={form.ammoType} 
+              onChange={e => setForm({ ...form, ammoType: e.target.value })} 
+            />
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              placeholder="Preço (ex: 1200)" 
+              type="number" 
+              value={form.price} 
+              onChange={e => setForm({ ...form, price: e.target.value })} 
+            />
+            <input 
+              className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+              type="file" 
+              accept="image/*" 
+              onChange={handleFileChange} 
+            />
+            <div className="col-span-1 sm:col-span-3 flex gap-2">
+              <button className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" type="submit">
+                Criar arma
+              </button>
+              <div className="text-sm text-neutral-300">
+                Campos: Nome, Dano, Capacidade do pente, Tipo de munição, Preço, Imagem.
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <BuyModal 
+        open={buyModal.open} 
+        standId={buyModal.standId} 
+        weaponId={buyModal.weaponId} 
+        onClose={closeBuyModal} 
+        buyerOptions={buyerOptions} 
+        selectedBuyerInv={selectedBuyerInv} 
+        setSelectedBuyerInv={setSelectedBuyerInv} 
+        confirmPurchase={confirmPurchase} 
+        weapon={state.weapons[buyModal.weaponId]} 
+      />
+    </div>
+  );
 }
 
-async function updateInventoryCustom(invId, newCustom) {
-  if (!supabase) return false;
-  try {
-    const { error } = await supabase.from('inventories').update({ custom: newCustom }).eq('id', invId);
-    if (error) {
-      console.error('Erro ao atualizar inventário:', error);
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.error('updateInventoryCustom unexpected', e);
-    return false;
-  }
+// Helper Components
+function AddWeaponToStandDropdown({ stand, weapons, onAdd }) {
+  const available = Object.values(weapons).filter(w => !stand.weaponIds.includes(w.id));
+  return (
+    <div>
+      <select 
+        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
+        onChange={(e) => { 
+          if (e.target.value) onAdd(stand.id, e.target.value); 
+          e.target.value = ''; 
+        }}
+      >
+        <option value="">Adicionar arma ao stand</option>
+        {available.map(w => (
+          <option key={w.id} value={w.id}>
+            {w.name} — R$ {w.price}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
-// MOCK DATA
+function BuyModal({ open, standId, weaponId, onClose, buyerOptions, selectedBuyerInv, setSelectedBuyerInv, confirmPurchase, weapon }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+      <div className="bg-neutral-800 text-white rounded p-6 w-96 border border-neutral-700">
+        <h3 className="text-lg font-bold mb-2">Comprar arma</h3>
+        {weapon ? (
+          <div className="mb-3">
+            <div className="font-semibold">{weapon.name}</div>
+            {(weapon.image_url || weapon.imageBase64) && (
+              <img 
+                src={weapon.image_url || weapon.imageBase64} 
+                alt={weapon.name} 
+                className="w-full h-28 object-cover rounded my-2" 
+              />
+            )}
+            <div className="text-sm text-neutral-300">Preço: R$ {weapon.price}</div>
+            <div className="text-sm text-neutral-300">
+              Dano: {weapon.damage ?? '—'} — Munição: {weapon.ammoType ?? weapon.ammo_type ?? '—'}
+            </div>
+            <div className="text-sm text-neutral-300">
+              Pente: {weapon.magCapacity ?? weapon.mag_capacity ?? '—'}
+            </div>
+          </div>
+        ) : (
+          <div className="text-neutral-300">Carregando arma...</div>
+        )}
+
+        <div className="mb-2">
+          <label className="block text-sm text-neutral-300">Debitar de:</label>
+          <select 
+            className="border px-2 py-1 w-full bg-neutral-700 text-white border-neutral-600" 
+            value={selectedBuyerInv || ''} 
+            onChange={(e) => setSelectedBuyerInv(e.target.value)}
+          >
+            <option value="">Selecione inventário</option>
+            {buyerOptions.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.name} — Saldo: R$ {b.money}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button 
+            className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button 
+            className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
+            onClick={confirmPurchase}
+          >
+            Confirmar compra
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- MOCK DATA ----------
 const MOCK_STATE = {
   currentUser: null,
   users: [
@@ -1319,8 +1425,7 @@ const MOCK_STATE = {
             items:[]
           } 
         ] 
-      },
-      meta: { status: '', notes: '' }
+      }
     },
     don: {
       id:'don', 
@@ -1330,8 +1435,7 @@ const MOCK_STATE = {
       wallpaper:'don_bg.jpg', 
       money:3000,
       fixedCategories: ['Status','Maleta','Dinheiro','Caderno'],
-      custom: { Maleta: [] },
-      meta: { status: '', notes: '' }
+      custom: { Maleta: [] }
     },
     carro: {
       id:'carro', 
@@ -1340,8 +1444,7 @@ const MOCK_STATE = {
       type:'vehicle', 
       wallpaper:'car_bg.jpg',
       fixedCategories: ['Porta-luvas','Banco de trás','Porta-malas'],
-      custom: { 'Porta-luvas': [] },
-      meta: { status: '', notes: '' }
+      custom: { 'Porta-luvas': [] }
     }
   },
   shop: {
@@ -1356,14 +1459,82 @@ const MOCK_STATE = {
 };
 
 export default function App() {
-  const [users, setUsers] = useState([]);
-  const [inventories, setInventories] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [items, setItems] = useState([]);
-  const [weapons, setWeapons] = useState([]);
-  const [stands, setStands] = useState([]);
-  const [standWeapons, setStandWeapons] = useState([]);
-  const [loading, setLoading] = useState(false);
+const [users, setUsers] = useState([]);
+const [inventories, setInventories] = useState([]);
+const [categories, setCategories] = useState([]);
+const [items, setItems] = useState([]);
+const [weapons, setWeapons] = useState([]);
+const [stands, setStands] = useState([]);
+const [standWeapons, setStandWeapons] = useState([]);
+const [loading, setLoading] = useState(false);
+
+useEffect(() => {
+  async function fetchWeapons() {
+    const { data, error } = await supabase.from("weapons").select("*");
+    console.log("WEAPONS DATA:", data);
+    console.log("WEAPONS ERROR:", error);
+
+    const { data: users } = await supabase.from("users").select("*");
+    console.log("USERS DATA:", users);
+
+    const { data: inv } = await supabase.from("inventories").select("*");
+    console.log("INVENTORIES DATA:", inv);
+  }
+
+  fetchWeapons();
+}, []);
+
+async function fetchAllData() {
+  setLoading(true);
+  try {
+    const [
+      { data: usersData },
+      { data: inventoriesData },
+      { data: categoriesData },
+      { data: itemsData },
+      { data: weaponsData },
+      { data: standsData },
+      { data: standWeaponsData },
+    ] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('inventories').select('*'),
+      supabase.from('categories').select('*'),
+      supabase.from('items').select('*'),
+      supabase.from('weapons').select('*'),
+      supabase.from('stands').select('*'),
+      supabase.from('stand_weapons').select('*'),
+    ]);
+
+    setUsers(usersData || []);
+    setCategories(categoriesData || []);
+    setItems(itemsData || []);
+    setWeapons(weaponsData || []);
+    setStands(standsData || []);
+    setStandWeapons(standWeaponsData || []);
+
+    const enrichedInventories = (inventoriesData || []).map(inv => {
+      let detailedItem = null;
+      if (inv.item_id) detailedItem = itemsData.find(i => i.id === inv.item_id);
+      else if (inv.weapon_id) detailedItem = weaponsData.find(w => w.id === inv.weapon_id);
+
+      return {
+        ...inv,
+        details: detailedItem || null,
+      };
+    });
+
+    setInventories(enrichedInventories);
+
+  } catch (err) {
+    console.error("Erro ao buscar dados:", err);
+  } finally {
+    setLoading(false);
+  }
+}
+  
+useEffect(() => {
+  fetchAllData();
+}, []);
 
   const [state, setState] = useState(MOCK_STATE);
   const [view, setView] = useState('menu'); // menu | inventory | shop
@@ -1371,11 +1542,11 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [connectedSupabase, setConnectedSupabase] = useState(false);
 
-  useEffect(() => { 
-    if (supabase) { 
+  useEffect(()=> { 
+    if(supabase){ 
       console.log('Supabase client configurado');
     } 
-  }, []);
+  },[]);
 
   const currentUser = state.currentUser;
 
@@ -1385,57 +1556,46 @@ export default function App() {
     return (inv.ownerId && inv.ownerId === currentUser.id) || inv.ownerId == null;
   });
 
-  function handleLogin(user) { 
-    setState(prev => ({ ...prev, currentUser: user })); 
+  function handleLogin(user){ 
+    setState(prev=> ({...prev, currentUser: user})); 
   }
 
-  function logout() { 
-    setState(prev => ({ ...prev, currentUser: null })); 
+  function logout(){ 
+    setState(prev=> ({...prev, currentUser: null})); 
   }
 
-  function openInventory(invId) { 
+  function openInventory(invId){ 
     setSelectedInventoryId(invId); 
     setView('inventory'); 
   }
 
-  function openShop() { 
+  function openShop(){ 
     setView('shop'); 
   }
 
-  function updateState(updater) { 
-    setState(prev => { 
-      const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }; 
+  function updateState(updater){ 
+    setState(prev=> { 
+      const next = typeof updater === 'function' ? updater(prev) : {...prev, ...updater}; 
       return next; 
     }); 
   }
 
-  useEffect(() => {
-    async function fetchWeapons() {
-      const { data, error } = await supabase.from("weapons").select("*");
-      console.log("WEAPONS DATA:", data);
-      console.log("WEAPONS ERROR:", error);
-
-      const { data: users } = await supabase.from("users").select("*");
-      console.log("USERS DATA:", users);
-
-      const { data: inv } = await supabase.from("inventories").select("*");
-      console.log("INVENTORIES DATA:", inv);
+  // ---------- Supabase helpers ----------
+  async function loadFromSupabase(){
+    if(!supabase) {
+      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+      return false;
     }
 
-    fetchWeapons();
-  }, []);
-
-  async function fetchAllData() {
-    setLoading(true);
-    try {
+    try{
       const [
-        { data: usersData },
-        { data: inventoriesData },
-        { data: categoriesData },
-        { data: itemsData },
-        { data: weaponsData },
-        { data: standsData },
-        { data: standWeaponsData },
+        {data: users},
+        {data: invs},
+        {data: cats},
+        {data: items},
+        {data: weapons},
+        {data: stands},
+        {data: stand_weapons}
       ] = await Promise.all([
         supabase.from('users').select('*'),
         supabase.from('inventories').select('*'),
@@ -1443,71 +1603,323 @@ export default function App() {
         supabase.from('items').select('*'),
         supabase.from('weapons').select('*'),
         supabase.from('stands').select('*'),
-        supabase.from('stand_weapons').select('*'),
+        supabase.from('stand_weapons').select('*')
       ]);
 
-      setUsers(usersData || []);
-      setCategories(categoriesData || []);
-      setItems(itemsData || []);
-      setWeapons(weaponsData || []);
-      setStands(standsData || []);
-      setStandWeapons(standWeaponsData || []);
+      const weaponsMap = {};
+      (weapons||[]).forEach(w=>{ weaponsMap[w.id] = {...w}; });
 
-      const enrichedInventories = (inventoriesData || []).map(inv => {
-        let detailedItem = null;
-        if (inv.item_id) detailedItem = itemsData.find(i => i.id === inv.item_id);
-        else if (inv.weapon_id) detailedItem = weaponsData.find(w => w.id === inv.weapon_id);
-
-        return {
-          ...inv,
-          details: detailedItem || null,
+      const invMap = {};
+      (invs||[]).forEach(inv => {
+        invMap[inv.id] = { 
+          id: inv.id, 
+          name: inv.name, 
+          ownerId: inv.owner_user_id, 
+          type: inv.type, 
+          wallpaper: inv.wallpaper, 
+          money: inv.money || 0, 
+          fixedCategories: [], 
+          custom: {} 
         };
       });
 
-      setInventories(enrichedInventories);
+      (cats||[]).forEach(c => {
+        if(!invMap[c.inventory_id]) return;
+        const parent = c.parent_fixed || 'Mochila';
+        const inv = invMap[c.inventory_id];
+        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
+        if(!inv.custom[parent]) inv.custom[parent] = [];
+        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
+      });
 
-    } catch (err) {
-      console.error("Erro ao buscar dados:", err);
-    } finally {
-      setLoading(false);
+      (items||[]).forEach(it => {
+        const cat = (cats||[]).find(c=> c.id === it.category_id);
+        if(!cat) return;
+        const inv = invMap[cat.inventory_id];
+        if(!inv) return;
+        const parent = cat.parent_fixed || 'Mochila';
+        const catList = inv.custom[parent] || [];
+        const catObj = catList.find(cc => cc.id === cat.id);
+        const itemObj = { 
+          id: it.id, 
+          name: it.name, 
+          qty: it.qty, 
+          desc: it.metadata?.description || '', 
+          type: it.type || 'item', 
+          metadata: it.metadata || {} 
+        };
+        if(catObj) catObj.items.push(itemObj);
+      });
+
+      const shop = { 
+        stands: (stands||[]).map(s=> ({ 
+          id: s.id, 
+          name: s.name, 
+          slots: s.slots, 
+          weaponIds: [] 
+        })) 
+      };
+
+      (stand_weapons||[]).forEach(sw => {
+        const st = shop.stands.find(s=> s.id === sw.stand_id);
+        if(st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
+      });
+
+      const nextState = { 
+        currentUser: state.currentUser, 
+        users: users||[], 
+        inventories: invMap, 
+        shop, 
+        weapons: weaponsMap 
+      };
+
+      setState(nextState);
+      setConnectedSupabase(true);
+      setupRealtime();
+      return true;
+
+    }catch(err){ 
+      console.error('loadFromSupabase', err); 
+      alert('Erro ao carregar dados do Supabase. Veja console.'); 
+      return false; 
     }
   }
-    
-  useEffect(() => {
-    fetchAllData();
-  }, []);
 
-  // Renderização principal do App (adicionada placeholder, pois não estava explícita no código original)
+  function setupRealtime(){ 
+    if(!supabase) return; 
+    try{ 
+      supabase.channel('public-all')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventories' }, ()=>{ loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, ()=>{ loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, ()=>{ loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'weapons' }, ()=>{ loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stands' }, ()=>{ loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stand_weapons' }, ()=>{ loadFromSupabase(); })
+        .subscribe(); 
+    } catch(err){ 
+      console.error('realtime setup', err);
+    } 
+  }
+
+  // More Supabase helpers would go here...
+  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
+  if (!supabase) throw new Error('Supabase não configurado');
+
+  // gerar id no cliente (UUID). Usa crypto.randomUUID se disponível, senão fallback timestamp
+  const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `w_${Date.now()}`;
+
+  let image_url = null;
+  const bucket = 'weapons'; // garanta que o bucket existe no Supabase Storage
+
+  try {
+    // 1) Upload da imagem (se houver)
+    if (imageFile) {
+      const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+      const path = `weapons/${id}.${ext}`; // caminho no storage
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, imageFile, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // obter url pública
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+      image_url = urlData?.publicUrl ?? null;
+    }
+
+    // 2) Insert na tabela weapons
+    const payload = {
+      id, // usamos o id gerado no cliente
+      name,
+      damage,
+      mag_capacity: magCapacity,
+      ammo_type: ammoType,
+      price,
+      image_url
+    };
+
+    const { data, error } = await supabase
+      .from('weapons')
+      .insert([payload], { returning: 'representation' });
+
+    if (error) {
+      // se insert falhar, remover a imagem que acabou de subir (cleanup)
+      if (image_url) {
+        try {
+          // path precisa ser igual ao usado no upload; remover arquivo
+          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+          const path = `weapons/${id}.${ext}`;
+          await supabase.storage.from(bucket).remove([path]);
+        } catch (e) {
+          console.warn('Erro ao limpar imagem após falha de insert:', e);
+        }
+      }
+      throw error;
+    }
+
+    // 3) Atualizar UI / estados (chame sua função de reload se existir)
+    if (typeof fetchAllData === 'function') {
+      try { fetchAllData(); } catch (e) { console.warn('fetchAllData falhou:', e); }
+    }
+
+    // data é um array (representation), retornar o primeiro elemento
+    return (Array.isArray(data) && data[0]) ? data[0] : data;
+  } catch (err) {
+    console.error('Erro em createWeaponSupabase:', err);
+    throw err; // deixe o chamador lidar com a UI/alert
+  }
+}
+
+  // --- Supabase write helpers (injected) ---
+  async function updateInventoryCustom(invId, newCustom) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('inventories').update({ custom: newCustom }).eq('id', invId);
+      if (error) {
+        console.error('Erro ao atualizar inventário:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateInventoryCustom unexpected', e);
+      return false;
+    }
+  }
+
+  async function updateCategoryName(categoryId, newName) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('categories').update({ name: newName }).eq('id', categoryId);
+      if (error) {
+        console.error('Erro ao atualizar categoria:', error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('updateCategoryName unexpected', e);
+      return false;
+    }
+  }
+
+
+  // ---------- UI + routing ----------
   return (
-    <div>
-      {/* Conteúdo principal do App */}
-      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} users={state.users} />
-      {/* Condicionais para views: menu, inventory, shop */}
-      {view === 'inventory' && selectedInventoryId && (
-        <InventoryView
-          inventory={state.inventories[selectedInventoryId]}
-          currentUser={currentUser}
-          state={state}
-          updateState={updateState}
-          onBack={() => setView('menu')}
-          connectedSupabase={connectedSupabase}
-          loadFromSupabase={loadFromSupabase}
-        />
-      )}
-      {view === 'shop' && (
-        <ShopView
-          shop={state.shop}
-          weapons={state.weapons}
-          currentUser={currentUser}
-          state={state}
-          updateState={updateState}
-          onBack={() => setView('menu')}
-          connectedSupabase={connectedSupabase}
-          createWeaponSupabase={createWeaponSupabase}
-          loadFromSupabase={loadFromSupabase}
-        />
-      )}
-      {/* Adicione o menu principal aqui */}
+    <div className="min-h-screen bg-neutral-800 text-white">
+      <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
+        <h1 className="text-2xl font-bold">Inventários & Loja - Completo</h1>
+        <div className="flex items-center gap-3">
+          {supabase && !connectedSupabase && (
+            <button 
+              className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+
+
+              onClick={loadFromSupabase}
+            >
+              Conectar Supabase
+            </button>
+          )}
+          {connectedSupabase && (
+            <span className="text-sm text-green-400">✓ Conectado ao Supabase</span>
+          )}
+          {currentUser ? (
+            <>
+              <span className="text-sm">
+                Logado: <strong>{currentUser.name}</strong>
+              </span>
+              <button 
+                className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+                onClick={logout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <button 
+              className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
+              onClick={()=>setLoginOpen(true)}
+            >
+              Login
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="p-4 md:p-6">
+        {view === 'menu' && (
+          <div>
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {visibleInventories.map(inv => (
+                  <div key={inv.id} className="bg-neutral-700 p-4 rounded shadow border border-neutral-600 text-white">
+                    <h2 className="font-bold">{inv.name}</h2>
+                    <p className="text-sm text-neutral-300">Tipo: {inv.type}</p>
+                    <p className="text-sm text-neutral-300">Dinheiro: R$ {inv.money}</p>
+                    <div className="mt-3 flex gap-2">
+                      <button 
+                        className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
+                        onClick={()=>openInventory(inv.id)}
+                      >
+                        Abrir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2">Loja</h3>
+              <div className="bg-neutral-700 p-4 rounded shadow border border-neutral-600">
+                <p className="text-neutral-200">Loja com stands — clique para abrir</p>
+                <div className="mt-3">
+                  <button 
+                    className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
+                    onClick={openShop}
+                  >
+                    Entrar na Loja
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {view === 'inventory' && selectedInventoryId && (
+          <InventoryView
+            inventory={state.inventories[selectedInventoryId]}
+            currentUser={currentUser}
+            state={state}
+            updateState={updateState}
+            onBack={()=>setView('menu')}
+            connectedSupabase={connectedSupabase}
+            loadFromSupabase={loadFromSupabase}
+          />
+        )}
+
+        {view === 'shop' && (
+          <ShopView
+            shop={state.shop}
+            weapons={state.weapons}
+            currentUser={currentUser}
+            state={state}
+            updateState={updateState}
+            onBack={()=>setView('menu')}
+            connectedSupabase={connectedSupabase}
+            createWeaponSupabase={createWeaponSupabase}
+            loadFromSupabase={loadFromSupabase}
+          />
+        )}
+      </main>
+
+      <LoginModal 
+        open={loginOpen} 
+        onClose={()=>setLoginOpen(false)} 
+        onLogin={handleLogin} 
+        users={state.users} 
+      />
     </div>
   );
 }
