@@ -263,304 +263,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     setTargetCatForNewItem(list.length > 0 ? list[0].id : null);
   }, [selectedFixed, inventory.custom]);
 
-  // ... (keep existing functions like createCategory, createItem, etc.)
-
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{inventory.name} — Inventário</h2>
-        <div className="flex gap-2">
-          <BackButton onClick={onBack} />
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-6">
-        <aside className="w-full md:w-56 bg-neutral-900 p-3 rounded shadow border border-neutral-700">
-          <h3 className="font-semibold mb-2 text-white">Categorias</h3>
-          <div className="flex flex-col gap-2">
-            {(inventory.fixedCategories || []).map((cat, idx) => (
-              <div key={cat} className="flex items-center gap-2">
-                <button 
-                  className={`text-left p-2 rounded w-full text-white ${
-                    cat === selectedFixed ? 'bg-neutral-700' : 'hover:bg-neutral-800'
-                  }`} 
-                  onClick={() => setSelectedFixed(cat)}
-                >
-                  {cat}
-                </button>
-                {(isOwner || isAdmin) && (
-                  <button 
-                    className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                    onClick={() => { 
-                      const nn = prompt('Novo nome:', cat); 
-                      if (nn) renameFixedCategory(idx, nn); 
-                    }}
-                  >
-                    Renomear
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        <section className="flex-1">
-          <div className="bg-neutral-900 p-4 rounded shadow border border-neutral-700 min-h-[300px]">
-            <h4 className="font-semibold mb-3">{selectedFixed}</h4>
-
-            {((selectedFixed || '').toLowerCase().includes('moch') ||
-              (selectedFixed || '').toLowerCase().includes('malet') ||
-              (selectedFixed || '').toLowerCase().includes('porta')) ? (
-              <div>
-                <p className="text-sm text-neutral-400 mb-2">
-                  Crie sub-categorias e itens dentro delas. Arraste itens para organizar.
-                </p>
-
-                <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {inventory.custom?.[selectedFixed] && Array.isArray(inventory.custom[selectedFixed]) && inventory.custom[selectedFixed].length > 0 ? (
-                    inventory.custom[selectedFixed].map(cat => (
-                      <div
-                        key={cat.id}
-                        className="border border-neutral-700 rounded p-2 bg-neutral-800"
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, cat.id)}
-                      >
-                        <div className="flex justify-between items-center mb-2">
-                          <strong className="text-white">{cat.name}</strong>
-                          <div className="flex gap-2">
-                            {(isOwner || isAdmin) && (
-                              <>
-                                <button 
-                                  className="text-xs border px-2 rounded bg-neutral-700 border-neutral-600" 
-                                  onClick={() => { 
-                                    const nn = prompt('Novo nome da categoria:', cat.name); 
-                                    if (nn) renameCustomCategory(cat.id, nn); 
-                                  }}
-                                >
-                                  Renomear
-                                </button>
-                                <button 
-                                  className="text-xs px-2 py-1 rounded bg-red-700 border border-red-600" 
-                                  onClick={() => deleteCategory(cat.id)}
-                                >
-                                  Excluir
-                                </button>
-                                <button 
-                                  className="text-xs px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                                  onClick={() => { 
-                                    setTransferCategoryId(cat.id); 
-                                    setTransferOpen(true); 
-                                  }}
-                                >
-                                  Transferir
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          {(cat.items || []).map(it => (
-                            <div 
-                              key={it.id}
-                              className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
-                            >
-                              <div>
-                                <div className="font-semibold text-white">{it.name}</div>
-                                <div className="text-sm text-neutral-300">x{it.qty} {it.desc ? `— ${it.desc}` : ''}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div>
-                      <p className="text-neutral-300">Carregando inventário... ou dados não encontrados.</p>
-                      <pre className="text-xs text-neutral-400 mt-2">{JSON.stringify(inventory.custom?.[selectedFixed], null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
-
-                {(isOwner || isAdmin) && (
-                  <div className="border-t border-neutral-700 pt-3">
-                    <h5 className="font-semibold text-white">Criar sub-categoria</h5>
-                    <div className="flex gap-2 mt-2">
-                      <input
-                        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600 placeholder-neutral-400"
-                        placeholder="Nome da categoria"
-                        value={newCatName}
-                        onChange={(e) => setNewCatName(e.target.value)}
-                      />
-                      <button 
-                        className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                        onClick={createCategory}
-                      >
-                        Criar
-                      </button>
-                    </div>
-
-                    <h5 className="font-semibold mt-4 text-white">Criar item</h5>
-                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
-                      <input 
-                        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-                        placeholder="Nome do item" 
-                        value={newItemName} 
-                        onChange={(e) => setNewItemName(e.target.value)} 
-                      />
-                      <input 
-                        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-                        type="number" 
-                        min={1} 
-                        value={newItemQty} 
-                        onChange={(e) => setNewItemQty(e.target.value)} 
-                      />
-                      <select 
-                        className="border px-2 py-1 bg-neutral-700 text-white border-neutral-600" 
-                        value={targetCatForNewItem || ''} 
-                        onChange={(e) => setTargetCatForNewItem(e.target.value)}
-                      >
-                        <option value="">Selecione categoria</option>
-                        {(inventory.custom?.[selectedFixed] || []).map(c => 
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        )}
-                      </select>
-                      <input 
-                        className="border px-2 py-1 col-span-1 md:col-span-3 bg-neutral-700 text-white border-neutral-600" 
-                        placeholder="Descrição (opcional)" 
-                        value={newItemDesc} 
-                        onChange={(e) => setNewItemDesc(e.target.value)} 
-                      />
-                      <button 
-                        className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                        onClick={createItem}
-                      >
-                        Criar item
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              // ... (keep existing non-custom category rendering)
-              <div>
-                {(selectedFixed || '').toLowerCase().includes('dinheiro') && (
-                  <div>
-                    <p className="text-neutral-300">Conteúdo editável dentro dessa categoria:</p>
-                    <div className="mt-3">
-                      <div className="mb-2 text-white">
-                        <strong>Dinheiro:</strong> R$ {inventory.money}
-                        {isOwner && (
-                          <button 
-                            className="ml-2 px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                            onClick={() => { 
-                              const v = prompt('Novo valor:', String(inventory.money)); 
-                              if (v != null) { 
-                                updateState(prev => { 
-                                  const inv = { ...prev.inventories[inventory.id], money: Number(v) }; 
-                                  return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } }; 
-                                }); 
-                                if (connectedSupabase) {
-                                  supabase.from('inventories').update({ money: Number(v) }).eq('id', inventory.id);
-                                }
-                              } 
-                            }}
-                          >
-                            Editar
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {(selectedFixed || '').toLowerCase().includes('status') && (
-                  <div>
-                    <p className="text-neutral-300">Conteúdo editável dentro dessa categoria:</p>
-                    <div className="mt-3">
-                      <label className="font-semibold text-white">Status</label>
-                      <textarea 
-                        rows={6} 
-                        className="w-full border p-2 mt-2 bg-neutral-700 text-white border-neutral-600 resize-none" 
-                        value={statusText} 
-                        onChange={(e) => setStatusText(e.target.value)} 
-                        disabled={!isOwner && !isAdmin}
-                      />
-                      {(isOwner || isAdmin) && (
-                        <div className="mt-2">
-                          <button 
-                            className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                            onClick={saveStatusNotesToState}
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {(selectedFixed || '').toLowerCase().includes('anota') && (
-                  <div>
-                    <p className="text-neutral-300">Conteúdo editável dentro dessa categoria:</p>
-                    <div className="mt-3">
-                      <label className="font-semibold text-white">Anotações</label>
-                      <textarea 
-                        rows={6} 
-                        className="w-full border p-2 mt-2 bg-neutral-700 text-white border-neutral-600 resize-none" 
-                        value={notesText} 
-                        onChange={(e) => setNotesText(e.target.value)} 
-                        disabled={!isOwner && !isAdmin}
-                      />
-                      {(isOwner || isAdmin) && (
-                        <div className="mt-2">
-                          <button 
-                            className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                            onClick={saveStatusNotesToState}
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {!((selectedFixed || '').toLowerCase().includes('dinheiro') ||
-                   (selectedFixed || '').toLowerCase().includes('status') ||
-                   (selectedFixed || '').toLowerCase().includes('anota')) && (
-                  <div>
-                    <p className="text-neutral-300">
-                      Categoria "{selectedFixed}" — implementação específica ainda não adicionada.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
-      <TransferModal
-        open={transferOpen}
-        onClose={() => setTransferOpen(false)}
-        fromInventory={inventory}
-        categoryId={transferCategoryId}
-        inventories={state.inventories}
-        onTransfer={handleTransfer}
-      />
-
-      <EditItemModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        item={editItem}
-        weaponInfo={editWeaponInfo}
-        onSave={handleEditSave}
-      />
-    </div>
-  );
-}
-
   async function createCategory() {
     if (!newCatName) return alert('Digite o nome da nova categoria');
     const catId = crypto.randomUUID ? crypto.randomUUID() : `cat_${Date.now()}`;
@@ -952,92 +654,69 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                         </div>
 
                         <div className="space-y-2">
-                          {(cat.items || []).map(it => {
-                            const itemIsWeapon = it.type === 'weapon' || (it.metadata && it.metadata.weapon_id);
-                            const weaponData = itemIsWeapon ? (state.weapons[it.metadata?.weapon_id] || null) : null;
-
-                            return (
-                              <div 
-                                key={it.id}
-                                className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', fromCat: cat.id, itemId: it.id }));
-                                }}
-                              >
-                                <div className="flex gap-3 items-center">
-                                  {itemIsWeapon && (weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image) ? (
-                                    <img 
-                                      src={weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image} 
-                                      alt="img" 
-                                      className="w-12 h-8 object-cover rounded border border-neutral-600" 
-                                    />
-                                  ) : null}
-                                  <div>
-                                    <div className="font-semibold text-white">{it.name}</div>
-                                    <div className="text-sm text-neutral-300">
-                                      x{it.qty} {it.desc ? `— ${it.desc}` : ''}
-                                    </div>
-                                    {itemIsWeapon && (
-                                      <div className="mt-2 text-xs text-neutral-300">
-                                        Dano: {it.metadata?.damage ?? weaponData?.damage ?? '—'} — 
-                                        Pente: {it.metadata?.magCurrent ?? '—'}/{it.metadata?.magCapacity ?? weaponData?.magCapacity ?? '—'} — 
-                                        Munição: {it.metadata?.ammoType ?? weaponData?.ammoType ?? '—'}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="text-sm flex flex-col gap-2 items-end">
-                                  <div className="flex gap-1">
+                          {(cat.items || []).map(it => (
+                            <div 
+                              key={it.id}
+                              className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', fromCat: cat.id, itemId: it.id }));
+                              }}
+                            >
+                              <div>
+                                <div className="font-semibold text-white">{it.name}</div>
+                                <div className="text-sm text-neutral-300">x{it.qty} {it.desc ? `— ${it.desc}` : ''}</div>
+                              </div>
+                              <div className="text-sm flex flex-col gap-2 items-end">
+                                <div className="flex gap-1">
+                                  <button 
+                                    className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
+                                    onClick={() => {
+                                      setEditItem(it);
+                                      const wInfo = (it.type === 'weapon' || it.metadata?.weapon_id) && it.metadata?.weapon_id ? 
+                                        state.weapons[it.metadata.weapon_id] : null;
+                                      setEditWeaponInfo(wInfo);
+                                      setEditOpen(true);
+                                    }}
+                                  >
+                                    Editar
+                                  </button>
+                                  {(isOwner || isAdmin) && (
                                     <button 
-                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600" 
-                                      onClick={() => {
-                                        setEditItem(it);
-                                        const wInfo = itemIsWeapon && it.metadata?.weapon_id ? 
-                                          state.weapons[it.metadata.weapon_id] : null;
-                                        setEditWeaponInfo(wInfo);
-                                        setEditOpen(true);
-                                      }}
+                                      className="px-2 py-1 rounded bg-red-700 border border-red-600" 
+                                      onClick={() => deleteItem(cat.id, it.id)}
                                     >
-                                      Editar
+                                      Excluir
                                     </button>
-
-                                    {(isOwner || isAdmin) && (
-                                      <button 
-                                        className="px-2 py-1 rounded bg-red-700 border border-red-600" 
-                                        onClick={() => deleteItem(cat.id, it.id)}
-                                      >
-                                        Excluir
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {(it.type === 'weapon' || (it.metadata && it.metadata.weapon_id)) && (
-                                    <div className="flex gap-2">
-                                      <button 
-                                        className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                                        onClick={() => handleShoot(it)}
-                                      >
-                                        ATIRAR
-                                      </button>
-                                      <button 
-                                        className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
-                                        onClick={() => handleReload(it)}
-                                      >
-                                        Recarregar
-                                      </button>
-                                    </div>
                                   )}
                                 </div>
+                                {(it.type === 'weapon' || it.metadata?.weapon_id) && (
+                                  <div className="flex gap-2">
+                                    <button 
+                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                                      onClick={() => handleShoot(it)}
+                                    >
+                                      ATIRAR
+                                    </button>
+                                    <button 
+                                      className="px-2 py-1 rounded bg-neutral-700 border border-neutral-600 text-xs" 
+                                      onClick={() => handleReload(it)}
+                                    >
+                                      Recarregar
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-neutral-300">Carregando inventário... ou dados não encontrados. Check console for 'Custom Data:'.</p>
+                    <div>
+                      <p className="text-neutral-300">Carregando inventário... ou dados não encontrados.</p>
+                      <pre className="text-xs text-neutral-400 mt-2">{JSON.stringify(inventory.custom?.[selectedFixed], null, 2)}</pre>
+                    </div>
                   )}
                 </div>
 
@@ -1438,20 +1117,29 @@ export default function App() {
 
       (cats || []).forEach(c => {
         const inv = invMap[c.inventory_id];
-        if (!inv) return;
+        if (!inv) {
+          console.warn('Category with no matching inventory:', c);
+          return;
+        }
         const parent = c.parent_fixed || inv.fixedCategories[0] || 'Mochila';
         if (!inv.custom[parent]) inv.custom[parent] = [];
-        inv.custom[parent].push({ id: c.id, name: c.name || 'Unnamed', items: [] });
+        const existingCat = inv.custom[parent].find(cc => cc.id === c.id);
+        if (!existingCat) {
+          inv.custom[parent].push({ id: c.id, name: c.name || 'Unnamed', items: [] });
+        }
       });
 
       (items || []).forEach(it => {
         const cat = (cats || []).find(c => c.id === it.category_id);
         if (!cat) {
-          console.warn('Item without matching category:', it);
+          console.warn('Item with no matching category:', it);
           return;
         }
         const inv = invMap[cat.inventory_id];
-        if (!inv) return;
+        if (!inv) {
+          console.warn('Item with no matching inventory:', it);
+          return;
+        }
         const parent = cat.parent_fixed || inv.fixedCategories[0] || 'Mochila';
         const catList = inv.custom[parent] || [];
         const catObj = catList.find(cc => cc.id === cat.id);
@@ -1465,7 +1153,16 @@ export default function App() {
             metadata: it.metadata || {} 
           });
         } else {
-          console.warn('Category not found for item:', cat, it);
+          console.warn('Category not found for item during mapping:', cat, it);
+          inv.custom[parent] = inv.custom[parent] || [];
+          inv.custom[parent].push({ id: cat.id, name: cat.name || 'Unnamed', items: [{ 
+            id: it.id, 
+            name: it.name || 'Unnamed Item', 
+            qty: it.qty || 1, 
+            desc: it.metadata?.description || '', 
+            type: it.type || 'item', 
+            metadata: it.metadata || {} 
+          }] });
         }
       });
 
@@ -1491,6 +1188,7 @@ export default function App() {
         weapons: weaponsMap 
       };
 
+      console.log('Next State:', nextState);
       setState(nextState);
       setConnectedSupabase(true);
       setupRealtime();
@@ -1548,6 +1246,63 @@ export default function App() {
       const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }; 
       return next; 
     }); 
+  }
+
+  function handleTransfer(fromInvId, fromCatId, itemId, toInvId, toCatId) {
+    const fromInv = state.inventories[fromInvId];
+    const toInv = state.inventories[toInvId];
+    if (!fromInv || !toInv) return;
+
+    const fromCat = (fromInv.custom?.[fromInv.fixedCategories?.[0]] || []).find(c => c.id === fromCatId);
+    const toCat = (toInv.custom?.[toInv.fixedCategories?.[0]] || []).find(c => c.id === toCatId);
+    if (!fromCat || !toCat) return;
+
+    const item = fromCat.items.find(i => i.id === itemId);
+    if (!item) return;
+
+    updateState(prev => {
+      const newState = { ...prev };
+      const updatedFromInv = { ...newState.inventories[fromInvId] };
+      const updatedToInv = { ...newState.inventories[toInvId] };
+
+      updatedFromInv.custom = { ...(updatedFromInv.custom || {}) };
+      updatedToInv.custom = { ...(updatedToInv.custom || {}) };
+
+      const fromList = updatedFromInv.custom[fromInv.fixedCategories?.[0]] || [];
+      const toList = updatedToInv.custom[toInv.fixedCategories?.[0]] || [];
+
+      updatedFromInv.custom[fromInv.fixedCategories?.[0]] = fromList.map(c => 
+        c.id === fromCatId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
+      );
+      updatedToInv.custom[toInv.fixedCategories?.[0]] = toList.map(c => 
+        c.id === toCatId ? { ...c, items: [...c.items, item] } : c
+      );
+
+      newState.inventories = { ...newState.inventories, [fromInvId]: updatedFromInv, [toInvId]: updatedToInv };
+      console.log('Transfer Updated State:', newState);
+      return newState;
+    });
+
+    if (connectedSupabase) {
+      supabase.from('items').update({ category_id: toCatId, inventory_id: toInvId }).eq('id', itemId);
+    }
+  }
+
+  function handleEditSave(updatedItem) {
+    updateState(prev => {
+      const inv = { ...prev.inventories[inventory.id] };
+      inv.custom = { ...(inv.custom || {}) };
+      inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => ({
+        ...c,
+        items: c.items.map(it => it.id === updatedItem.id ? updatedItem : it)
+      }));
+      console.log('Edited Inventory:', inv);
+      return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+    });
+
+    if (connectedSupabase) {
+      supabase.from('items').update(updatedItem).eq('id', updatedItem.id);
+    }
   }
 
   return (
