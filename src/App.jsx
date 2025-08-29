@@ -7,7 +7,7 @@ function shuffleArray(arr) {
   const a = [...arr]; 
   for (let i = a.length - 1; i > 0; i--) { 
     const j = Math.floor(Math.random() * (i + 1)); 
-    [a[i], a[j]] = [a[j], a[i]]; // Corrected swap syntax
+    [a[i], a[j]] = [a[j], a[i]]; 
   } 
   return a; 
 }
@@ -21,7 +21,7 @@ function BackButton({onClick}) {
   );
 }
 
-function LoginModal({open, onClose, onLogin, users}){
+function LoginModal({open, onClose, onLogin, users}) {
   if(!open) return null;
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
@@ -54,12 +54,11 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
   const [name, setName] = useState(item?.name || '');
   const [qty, setQty] = useState(item?.qty || 1);
   const [desc, setDesc] = useState(item?.desc || '');
-  // weapon fields
   const [damage, setDamage] = useState((weaponInfo && (weaponInfo.damage || weaponInfo.damage === 0)) ? weaponInfo.damage : (item?.metadata?.damage || ''));
   const [magCapacity, setMagCapacity] = useState(item?.metadata?.magCapacity || item?.metadata?.mag_capacity || (weaponInfo?.magCapacity || ''));
   const [ammoType, setAmmoType] = useState(item?.metadata?.ammoType || weaponInfo?.ammoType || '');
 
-  useEffect(()=> {
+  useEffect(() => {
     if(!open) return;
     setName(item?.name || '');
     setQty(item?.qty || 1);
@@ -255,7 +254,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
   const [newItemDesc, setNewItemDesc] = useState('');
   const [targetCatForNewItem, setTargetCatForNewItem] = useState(null);
 
-  // Reset when inventory changes
   useEffect(() => {
     console.log('Inventory data:', inventory);
     setSelectedFixed(inventory.fixedCategories?.[0] || 'Mochila');
@@ -263,19 +261,17 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     setNotesText(inventory.meta?.notes || '');
     setTargetCatForNewItem(
       (inventory.custom && inventory.custom[inventory.fixedCategories?.[0]]) ?
-      (inventory.custom[inventory.fixedCategories[0]][0]?.id || null) :
+      (inventory.custom[inventory.fixedCategories[0]]?.[0]?.id || null) :
       null
     );
   }, [inventory.id]);
 
   useEffect(() => {
     const list = inventory.custom?.[selectedFixed] || [];
-    console.log('Selected Fixed:', selectedFixed);
-    console.log('Custom Data:', inventory.custom);
+    console.log('Selected Fixed:', selectedFixed, 'Custom Data:', list);
     setTargetCatForNewItem(list.length > 0 ? list[0].id : null);
   }, [selectedFixed, inventory.custom]);
 
-  // Create category/item functions
   async function createCategory() {
     if (!newCatName) return alert('Digite o nome da nova categoria');
 
@@ -299,8 +295,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       updateState(prev => {
         const inv = { ...prev.inventories[inventory.id] };
         inv.custom = { ...(inv.custom || {}) };
-        if (!inv.custom[selectedFixed]) inv.custom[selectedFixed] = [];
-        inv.custom[selectedFixed].push({ id: cat.id, name: cat.name, items: [] });
+        inv.custom[selectedFixed] = [...(inv.custom[selectedFixed] || []), { id: cat.id, name: cat.name, items: [] }];
         console.log('Updated Inventory:', inv);
         return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
       });
@@ -373,7 +368,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     setNewItemDesc('');
   }
 
-  // Weapon actions
   async function handleShoot(item) {
     const mag = (item.metadata && item.metadata.magCurrent) || 0;
     if (mag <= 0) return alert('Pente vazio. Recarregue.');
@@ -437,7 +431,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     });
   }
 
-  // Delete functions
   async function deleteItem(catId, itemId) {
     if (!confirm('Remover este item?')) return;
 
@@ -465,7 +458,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     if (!confirm('Excluir categoria e todos os itens?')) return;
 
     if (connectedSupabase) {
-      // Delete items first
       const { data: itemsToDelete, error: fetchErr } = await supabase.from('items').select('id').eq('category_id', catId);
       if (fetchErr) {
         console.error('Erro ao fetch items para delete:', fetchErr);
@@ -481,7 +473,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
           return;
         }
       }
-      // Delete category
       const { error: deleteCatErr } = await supabase.from('categories').delete().eq('id', catId);
       if (deleteCatErr) {
         console.error('Erro ao deletar categoria:', deleteCatErr);
@@ -499,7 +490,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     });
   }
 
-  // Drag & Drop handlers
   async function handleDrop(e, toCatId) {
     e.preventDefault();
     try {
@@ -549,9 +539,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
     }
   }
 
-  // Rename functions
   async function renameFixedCategory(index, newName) {
-    // Assuming fixedCategories are local only, no Supabase sync for rename fixed
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
       const fixed = [...(inv.fixedCategories || [])];
@@ -561,7 +549,6 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
     if (connectedSupabase) {
-      // If fixedCategories saved in DB, update here
       // e.g., await supabase.from('inventories').update({ fixed_categories: fixed }).eq('id', inventory.id);
     }
   }
@@ -658,8 +645,8 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                 </p>
 
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(inventory.custom?.[selectedFixed] || []).length > 0 ? (
-                    inventory.custom?.[selectedFixed].map(cat => (
+                  {inventory.custom?.[selectedFixed] && inventory.custom[selectedFixed].length > 0 ? (
+                    inventory.custom[selectedFixed].map(cat => (
                       <div
                         key={cat.id}
                         className="border border-neutral-700 rounded p-2 bg-neutral-800"
@@ -992,13 +979,14 @@ const MOCK_STATE = {
             name:'Chaves', 
             items:[{id:'i1', name:'Corda', qty:1, desc:''}]
           }, 
-          {
+          { 
             id:'c2', 
             name:'Armas', 
             items:[]
           } 
         ] 
-      }
+      },
+      meta: { status: '', notes: '' }
     },
     don: {
       id:'don', 
@@ -1008,7 +996,8 @@ const MOCK_STATE = {
       wallpaper:'don_bg.jpg', 
       money:3000,
       fixedCategories: ['Status','Maleta','Dinheiro','Caderno'],
-      custom: { Maleta: [] }
+      custom: { Maleta: [] },
+      meta: { status: '', notes: '' }
     },
     carro: {
       id:'carro', 
@@ -1017,7 +1006,8 @@ const MOCK_STATE = {
       type:'vehicle', 
       wallpaper:'car_bg.jpg',
       fixedCategories: ['Porta-luvas','Banco de trás','Porta-malas'],
-      custom: { 'Porta-luvas': [] }
+      custom: { 'Porta-luvas': [] },
+      meta: { status: '', notes: '' }
     }
   },
   shop: {
@@ -1033,12 +1023,11 @@ const MOCK_STATE = {
 
 export default function App() {
   const [state, setState] = useState(MOCK_STATE);
-  const [view, setView] = useState('menu'); // menu | inventory | shop
+  const [view, setView] = useState('menu');
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [connectedSupabase, setConnectedSupabase] = useState(false);
 
-  // Automatically connect to Supabase on mount
   useEffect(() => {
     if (supabase) {
       console.log('Supabase client configurado');
@@ -1046,7 +1035,6 @@ export default function App() {
     }
   }, []);
 
-  // --- Supabase write helpers ---
   async function updateInventoryCustom(invId, newCustom) {
     if (!supabase) return false;
     try {
@@ -1173,38 +1161,49 @@ export default function App() {
           type: inv.type, 
           wallpaper: inv.wallpaper, 
           money: inv.money || 0, 
-          fixedCategories: inv.fixed_categories || [], 
+          fixedCategories: inv.fixed_categories || ['Status','Mochila','Dinheiro','Anotações'], 
           custom: {},
           meta: { status: inv.status || '', notes: inv.notes || '' }
         };
       });
 
+      Object.values(invMap).forEach(inv => {
+        inv.fixedCategories.forEach(fc => {
+          if (!inv.custom[fc]) inv.custom[fc] = [];
+        });
+      });
+
       (cats || []).forEach(c => {
-        if (!invMap[c.inventory_id]) return;
-        const parent = c.parent_fixed || 'Mochila';
         const inv = invMap[c.inventory_id];
-        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
+        if (!inv) return;
+        const parent = c.parent_fixed || inv.fixedCategories[0] || 'Mochila';
         if (!inv.custom[parent]) inv.custom[parent] = [];
-        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
+        inv.custom[parent].push({ id: c.id, name: c.name || 'Unnamed', items: [] });
       });
 
       (items || []).forEach(it => {
         const cat = (cats || []).find(c => c.id === it.category_id);
-        if (!cat) return;
+        if (!cat) {
+          console.warn('Item without matching category:', it);
+          return;
+        }
         const inv = invMap[cat.inventory_id];
         if (!inv) return;
-        const parent = cat.parent_fixed || 'Mochila';
+        const parent = cat.parent_fixed || inv.fixedCategories[0] || 'Mochila';
         const catList = inv.custom[parent] || [];
         const catObj = catList.find(cc => cc.id === cat.id);
-        const itemObj = { 
-          id: it.id, 
-          name: it.name, 
-          qty: it.qty, 
-          desc: it.metadata?.description || '', 
-          type: it.type || 'item', 
-          metadata: it.metadata || {} 
-        };
-        if (catObj) catObj.items.push(itemObj);
+        if (catObj) {
+          catObj.items.push({ 
+            id: it.id, 
+            name: it.name || 'Unnamed Item', 
+            qty: it.qty || 1, 
+            desc: it.metadata?.description || '', 
+            type: it.type || 'item', 
+            metadata: it.metadata || {} 
+          });
+        } else {
+          console.warn('Category not found for item:', cat, it);
+        }
       });
 
       const shop = { 
