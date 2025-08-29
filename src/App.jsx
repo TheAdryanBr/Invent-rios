@@ -302,6 +302,159 @@ function EditItemModal({ open, onClose, item, weaponInfo, onSave }) {
 // ---------- Main App ----------
 {
   const [state, setState] = useState(MOCK_STATE);
+
+  // --- Supabase integration helpers (injected) ---
+  async function loadFromSupabase() {
+    async function loadTable(name, mockData = []) {
+      const { data, error } = await supabase.from(name).select('*');
+      if (error) {
+        console.error(`${name.toUpperCase()} ERROR:`, error);
+        return mockData;
+      }
+      if ((!data || data.length === 0) && mockData && mockData.length > 0) {
+        console.log(`${name.toUpperCase()} vazio → populando com MOCK_STATE`);
+        try {
+          await supabase.from(name).insert(mockData);
+        } catch (e) {
+          console.warn('Erro ao popular tabela', name, e);
+        }
+        return mockData;
+      }
+      return data || mockData;
+    }
+
+    try {
+      const users = await loadTable('users', MOCK_STATE.users || []);
+      const inventoriesMockArr = Object.values(MOCK_STATE.inventories || {});
+      const inventoriesArr = await loadTable('inventories', inventoriesMockArr);
+      const categories = await loadTable('categories', []);
+      const items = await loadTable('items', []);
+      const weaponsArr = await loadTable('weapons', []);
+      const stands = await loadTable('stands', []);
+      const stand_weapons = await loadTable('stand_weapons', []);
+
+      const inventoriesObj = {};
+      (inventoriesArr || []).forEach(inv => {
+        inventoriesObj[inv.id] = {
+          id: inv.id,
+          name: inv.name,
+          ownerId: inv.owner_id ?? inv.ownerId ?? null,
+          type: inv.type,
+          wallpaper: inv.wallpaper,
+          money: inv.money ?? 0,
+          fixedCategories: inv.fixed_categories || inv.fixedCategories || [],
+          custom: inv.custom || {}
+        };
+      });
+
+      setState(prev => ({
+        ...prev,
+        users: users || MOCK_STATE.users,
+        inventories: inventoriesObj,
+        categories: categories || [],
+        items: items || [],
+        weapons: Array.isArray(weaponsArr) ? weaponsArr : [],
+        shop: { stands: stands || [] },
+        stand_weapons: stand_weapons || []
+      }));
+
+      setConnectedSupabase(true);
+    } catch (err) {
+      console.error('Erro em loadFromSupabase:', err);
+    }
+  }
+
+  async function updateInventoryCustom(invId, newCustom) {
+    const { error } = await supabase
+      .from('inventories')
+      .update({ custom: newCustom })
+      .eq('id', invId);
+
+    if (error) {
+      console.error('Erro ao atualizar inventário:', error);
+      return false;
+    }
+    setState(prev => ({
+      ...prev,
+      inventories: {
+        ...prev.inventories,
+        [invId]: {
+          ...prev.inventories[invId],
+          custom: newCustom
+        }
+      }
+    }));
+    return true;
+  }
+
+  async function updateCategoryName(categoryId, newName) {
+    const { error } = await supabase
+      .from('categories')
+      .update({ name: newName })
+      .eq('id', categoryId);
+
+    if (error) {
+      console.error('Erro ao atualizar categoria:', error);
+      return false;
+    }
+
+    setState(prev => ({
+      ...prev,
+      categories: (prev.categories || []).map(cat => (cat.id === categoryId ? { ...cat, name: newName } : cat))
+    }));
+    return true;
+  }
+
+  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
+    if (!supabase) throw new Error('Supabase não configurado');
+
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `w_${Date.now()}`;
+    const bucket = 'weapons';
+    let image_url = null;
+
+    try {
+      if (imageFile) {
+        const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+        const path = `weapons/${id}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(path, imageFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+        image_url = urlData?.publicUrl ?? null;
+      }
+
+      const payload = {
+        id,
+        name,
+        damage,
+        mag_capacity: magCapacity,
+        ammo_type: ammoType,
+        price,
+        image_url
+      };
+
+      const { data, error } = await supabase.from('weapons').insert([payload], { returning: 'representation' });
+
+      if (error) {
+        if (image_url && imageFile) {
+          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+          const path = `weapons/${id}.${ext}`;
+          try { await supabase.storage.from(bucket).remove([path]); } catch (e) { console.warn('Cleanup failed', e); }
+        }
+        throw error;
+      }
+
+      await loadFromSupabase();
+      return Array.isArray(data) ? data[0] : data;
+    } catch (err) {
+      console.error('Erro em createWeaponSupabase:', err);
+      throw err;
+    }
+  }
+
+  // safe helpers
+  const safeWeapons = (state && state.weapons) ? state.weapons : [];
+  const safeInventoriesObj = (state && state.inventories) ? state.inventories : {};
+
   const [view, setView] = useState('menu'); // menu | inventory | shop
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
