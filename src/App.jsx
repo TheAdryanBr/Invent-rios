@@ -1937,4 +1937,3 @@ function shuffleArray(arr) {
   } 
   return a; 
 }
-
