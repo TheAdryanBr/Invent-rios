@@ -756,7 +756,7 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                     <div
                       key={cat.id}
                       className="border border-neutral-700 rounded p-2 bg-neutral-800"
-                      onDragOver={handleDragOver}
+                      onDragOver={e => e.preventDefault()}
                       onDrop={(e) => handleDrop(e, cat.id)}
                     >
                       <div className="flex justify-between items-center mb-2">
@@ -803,7 +803,9 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, con
                               key={it.id}
                               className="p-2 bg-neutral-800 rounded border border-neutral-700 flex justify-between items-center"
                               draggable
-                              onDragStart={(e) => handleDragStart(e, cat.id, it.id)}
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'item', fromCat: cat.id, itemId: it.id }));
+                              }}
                             >
                               <div className="flex gap-3 items-center">
                                 {itemIsWeapon && (weaponData?.image_url || weaponData?.imageBase64 || it.metadata?.image) ? (
@@ -1120,332 +1122,13 @@ const MOCK_STATE = {
 };
 
 export default function App() {
-const [users, setUsers] = useState([]);
-const [inventories, setInventories] = useState([]);
-const [categories, setCategories] = useState([]);
-const [items, setItems] = useState([]);
-const [weapons, setWeapons] = useState([]);
-const [stands, setStands] = useState([]);
-const [standWeapons, setStandWeapons] = useState([]);
-const [loading, setLoading] = useState(false);
-
-useEffect(() => {
-  async function fetchWeapons() {
-    const { data, error } = await supabase.from("weapons").select("*");
-    console.log("WEAPONS DATA:", data);
-    console.log("WEAPONS ERROR:", error);
-
-    const { data: users } = await supabase.from("users").select("*");
-    console.log("USERS DATA:", users);
-
-    const { data: inv } = await supabase.from("inventories").select("*");
-    console.log("INVENTORIES DATA:", inv);
-  }
-
-  fetchWeapons();
-}, []);
-
-async function fetchAllData() {
-  setLoading(true);
-  try {
-    const [
-      { data: usersData },
-      { data: inventoriesData },
-      { data: categoriesData },
-      { data: itemsData },
-      { data: weaponsData },
-      { data: standsData },
-      { data: standWeaponsData },
-    ] = await Promise.all([
-      supabase.from('users').select('*'),
-      supabase.from('inventories').select('*'),
-      supabase.from('categories').select('*'),
-      supabase.from('items').select('*'),
-      supabase.from('weapons').select('*'),
-      supabase.from('stands').select('*'),
-      supabase.from('stand_weapons').select('*'),
-    ]);
-
-    setUsers(usersData || []);
-    setCategories(categoriesData || []);
-    setItems(itemsData || []);
-    setWeapons(weaponsData || []);
-    setStands(standsData || []);
-    setStandWeapons(standWeaponsData || []);
-
-    const enrichedInventories = (inventoriesData || []).map(inv => {
-      let detailedItem = null;
-      if (inv.item_id) detailedItem = itemsData.find(i => i.id === inv.item_id);
-      else if (inv.weapon_id) detailedItem = weaponsData.find(w => w.id === inv.weapon_id);
-
-      return {
-        ...inv,
-        details: detailedItem || null,
-      };
-    });
-
-    setInventories(enrichedInventories);
-
-  } catch (err) {
-    console.error("Erro ao buscar dados:", err);
-  } finally {
-    setLoading(false);
-  }
-}
-  
-useEffect(() => {
-  fetchAllData();
-}, []);
-
   const [state, setState] = useState(MOCK_STATE);
   const [view, setView] = useState('menu'); // menu | inventory | shop
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [connectedSupabase, setConnectedSupabase] = useState(false);
 
-  useEffect(()=> { 
-    if(supabase){ 
-      console.log('Supabase client configurado');
-    } 
-  },[]);
-
-  const currentUser = state.currentUser;
-
-  const visibleInventories = Object.values(state.inventories).filter(inv => {
-    if (currentUser?.role === 'gm') return true;
-    if (!currentUser) return inv.ownerId == null;
-    return (inv.ownerId && inv.ownerId === currentUser.id) || inv.ownerId == null;
-  });
-
-  function handleLogin(user){ 
-    setState(prev=> ({...prev, currentUser: user})); 
-  }
-
-  function logout(){ 
-    setState(prev=> ({...prev, currentUser: null})); 
-  }
-
-  function openInventory(invId){ 
-    setSelectedInventoryId(invId); 
-    setView('inventory'); 
-  }
-
-  function openShop(){ 
-    setView('shop'); 
-  }
-
-  function updateState(updater){ 
-    setState(prev=> { 
-      const next = typeof updater === 'function' ? updater(prev) : {...prev, ...updater}; 
-      return next; 
-    }); 
-  }
-
-  // ---------- Supabase helpers ----------
-  async function loadFromSupabase(){
-    if(!supabase) {
-      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
-      return false;
-    }
-
-    try{
-      const [
-        {data: users},
-        {data: invs},
-        {data: cats},
-        {data: items},
-        {data: weapons},
-        {data: stands},
-        {data: stand_weapons}
-      ] = await Promise.all([
-        supabase.from('users').select('*'),
-        supabase.from('inventories').select('*'),
-        supabase.from('categories').select('*'),
-        supabase.from('items').select('*'),
-        supabase.from('weapons').select('*'),
-        supabase.from('stands').select('*'),
-        supabase.from('stand_weapons').select('*')
-      ]);
-
-      const weaponsMap = {};
-      (weapons||[]).forEach(w=>{ weaponsMap[w.id] = {...w}; });
-
-      const invMap = {};
-      (invs||[]).forEach(inv => {
-        invMap[inv.id] = { 
-          id: inv.id, 
-          name: inv.name, 
-          ownerId: inv.owner_user_id, 
-          type: inv.type, 
-          wallpaper: inv.wallpaper, 
-          money: inv.money || 0, 
-          fixedCategories: inv.fixed_categories || [], 
-          custom: {},
-          meta: { status: inv.status || '', notes: inv.notes || '' }
-        };
-      });
-
-      (cats||[]).forEach(c => {
-        if(!invMap[c.inventory_id]) return;
-        const parent = c.parent_fixed || 'Mochila';
-        const inv = invMap[c.inventory_id];
-        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
-        if(!inv.custom[parent]) inv.custom[parent] = [];
-        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
-      });
-
-      (items||[]).forEach(it => {
-        const cat = (cats||[]).find(c=> c.id === it.category_id);
-        if(!cat) return;
-        const inv = invMap[cat.inventory_id];
-        if(!inv) return;
-        const parent = cat.parent_fixed || 'Mochila';
-        const catList = inv.custom[parent] || [];
-        const catObj = catList.find(cc => cc.id === cat.id);
-        const itemObj = { 
-          id: it.id, 
-          name: it.name, 
-          qty: it.qty, 
-          desc: it.metadata?.description || '', 
-          type: it.type || 'item', 
-          metadata: it.metadata || {} 
-        };
-        if(catObj) catObj.items.push(itemObj);
-      });
-
-      const shop = { 
-        stands: (stands||[]).map(s=> ({ 
-          id: s.id, 
-          name: s.name, 
-          slots: s.slots, 
-          weaponIds: [] 
-        })) 
-      };
-
-      (stand_weapons||[]).forEach(sw => {
-        const st = shop.stands.find(s=> s.id === sw.stand_id);
-        if(st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
-      });
-
-      const nextState = { 
-        currentUser: state.currentUser, 
-        users: users||[], 
-        inventories: invMap, 
-        shop, 
-        weapons: weaponsMap 
-      };
-
-      setState(nextState);
-      setConnectedSupabase(true);
-      setupRealtime();
-      return true;
-
-    }catch(err){ 
-      console.error('loadFromSupabase', err); 
-      alert('Erro ao carregar dados do Supabase. Veja console.'); 
-      return false; 
-    }
-  }
-
-  function setupRealtime(){ 
-    if(!supabase) return; 
-    try{ 
-      supabase.channel('public-all')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventories' }, ()=>{ loadFromSupabase(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, ()=>{ loadFromSupabase(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, ()=>{ loadFromSupabase(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'weapons' }, ()=>{ loadFromSupabase(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stands' }, ()=>{ loadFromSupabase(); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'stand_weapons' }, ()=>{ loadFromSupabase(); })
-        .subscribe(); 
-    } catch(err){ 
-      console.error('realtime setup', err);
-    } 
-  }
-
-  // More Supabase helpers would go here...
-  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
-  if (!supabase) throw new Error('Supabase não configurado');
-
-  // gerar id no cliente (UUID). Usa crypto.randomUUID se disponível, senão fallback timestamp
-  const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : `w_${Date.now()}`;
-
-  let image_url = null;
-  const bucket = 'weapons'; // garanta que o bucket existe no Supabase Storage
-
-  try {
-    // 1) Upload da imagem (se houver)
-    if (imageFile) {
-      const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-      const path = `weapons/${id}.${ext}`; // caminho no storage
-
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(path, imageFile, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // obter url pública
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
-      image_url = urlData?.publicUrl ?? null;
-    }
-
-    // 2) Insert na tabela weapons
-    const payload = {
-      id, // usamos o id gerado no cliente
-      name,
-      damage,
-      mag_capacity: magCapacity,
-      ammo_type: ammoType,
-      price,
-      image_url
-    };
-
-    const { data, error } = await supabase
-      .from('weapons')
-      .insert([payload], { returning: 'representation' });
-
-    if (error) {
-      // se insert falhar, remover a imagem que acabou de subir (cleanup)
-      if (image_url) {
-        try {
-          // path precisa ser igual ao usado no upload; remover arquivo
-          const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
-          const path = `weapons/${id}.${ext}`;
-          await supabase.storage.from(bucket).remove([path]);
-        } catch (e) {
-          console.warn('Erro ao limpar imagem após falha de insert:', e);
-        }
-      }
-      throw error;
-    }
-
-    // 3) Atualizar UI / estados (chame sua função de reload se existir)
-    if (typeof fetchAllData === 'function') {
-      try { fetchAllData(); } catch (e) { console.warn('fetchAllData falhou:', e); }
-    }
-
-    // data é um array (representation), retornar o primeiro elemento
-    return (Array.isArray(data) && data[0]) ? data[0] : data;
-  } catch (err) {
-    console.error('Erro em createWeaponSupabase:', err);
-    throw err; // deixe o chamador lidar com a UI/alert
-  }
-}
-
-  // ---------- UI + routing ----------
-  return (
-    <div className="min-h-screen bg-neutral-800 text-white">
-      <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
-        <h1 className="text-2xl font-bold">Inventários & Loja — Completo</h1>
-        <div className="flex items-center gap-3">
-          {supabase && !connectedSupabase && (
-            <button 
-              className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
-
-  // --- Supabase write helpers (injected) ---
+  // --- Supabase write helpers ---
   async function updateInventoryCustom(invId, newCustom) {
     if (!supabase) return false;
     try {
@@ -1476,7 +1159,228 @@ useEffect(() => {
     }
   }
 
+  async function createWeaponSupabase({ name, damage, magCapacity, ammoType, price, imageFile }) {
+    if (!supabase) throw new Error('Supabase não configurado');
 
+    const id = crypto.randomUUID ? crypto.randomUUID() : `w_${Date.now()}`;
+    let image_url = null;
+    const bucket = 'weapons';
+
+    try {
+      if (imageFile) {
+        const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+        const path = `weapons/${id}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(path, imageFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+        image_url = urlData?.publicUrl ?? null;
+      }
+
+      const payload = {
+        id,
+        name,
+        damage,
+        mag_capacity: magCapacity,
+        ammo_type: ammoType,
+        price,
+        image_url
+      };
+
+      const { data, error } = await supabase
+        .from('weapons')
+        .insert([payload], { returning: 'representation' });
+
+      if (error) {
+        if (image_url) {
+          try {
+            const ext = (imageFile.name && imageFile.name.split('.').pop()) || 'jpg';
+            const path = `weapons/${id}.${ext}`;
+            await supabase.storage.from(bucket).remove([path]);
+          } catch (e) {
+            console.warn('Erro ao limpar imagem após falha de insert:', e);
+          }
+        }
+        throw error;
+      }
+
+      return (Array.isArray(data) && data[0]) ? data[0] : data;
+    } catch (err) {
+      console.error('Erro em createWeaponSupabase:', err);
+      throw err;
+    }
+  }
+
+  async function loadFromSupabase() {
+    if (!supabase) {
+      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+      return false;
+    }
+
+    try {
+      const [
+        { data: users },
+        { data: invs },
+        { data: cats },
+        { data: items },
+        { data: weapons },
+        { data: stands },
+        { data: stand_weapons }
+      ] = await Promise.all([
+        supabase.from('users').select('*'),
+        supabase.from('inventories').select('*'),
+        supabase.from('categories').select('*'),
+        supabase.from('items').select('*'),
+        supabase.from('weapons').select('*'),
+        supabase.from('stands').select('*'),
+        supabase.from('stand_weapons').select('*')
+      ]);
+
+      const weaponsMap = {};
+      (weapons || []).forEach(w => { weaponsMap[w.id] = { ...w }; });
+
+      const invMap = {};
+      (invs || []).forEach(inv => {
+        invMap[inv.id] = { 
+          id: inv.id, 
+          name: inv.name, 
+          ownerId: inv.owner_user_id, 
+          type: inv.type, 
+          wallpaper: inv.wallpaper, 
+          money: inv.money || 0, 
+          fixedCategories: inv.fixed_categories || [], 
+          custom: {},
+          meta: { status: inv.status || '', notes: inv.notes || '' }
+        };
+      });
+
+      (cats || []).forEach(c => {
+        if (!invMap[c.inventory_id]) return;
+        const parent = c.parent_fixed || 'Mochila';
+        const inv = invMap[c.inventory_id];
+        inv.fixedCategories = inv.fixedCategories.length ? inv.fixedCategories : ['Status','Mochila','Dinheiro','Anotações'];
+        if (!inv.custom[parent]) inv.custom[parent] = [];
+        inv.custom[parent].push({ id: c.id, name: c.name, items: [] });
+      });
+
+      (items || []).forEach(it => {
+        const cat = (cats || []).find(c => c.id === it.category_id);
+        if (!cat) return;
+        const inv = invMap[cat.inventory_id];
+        if (!inv) return;
+        const parent = cat.parent_fixed || 'Mochila';
+        const catList = inv.custom[parent] || [];
+        const catObj = catList.find(cc => cc.id === cat.id);
+        const itemObj = { 
+          id: it.id, 
+          name: it.name, 
+          qty: it.qty, 
+          desc: it.metadata?.description || '', 
+          type: it.type || 'item', 
+          metadata: it.metadata || {} 
+        };
+        if (catObj) catObj.items.push(itemObj);
+      });
+
+      const shop = { 
+        stands: (stands || []).map(s => ({ 
+          id: s.id, 
+          name: s.name, 
+          slots: s.slots, 
+          weaponIds: [] 
+        })) 
+      };
+
+      (stand_weapons || []).forEach(sw => {
+        const st = shop.stands.find(s => s.id === sw.stand_id);
+        if (st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
+      });
+
+      const nextState = { 
+        currentUser: state.currentUser, 
+        users: users || [], 
+        inventories: invMap, 
+        shop, 
+        weapons: weaponsMap 
+      };
+
+      setState(nextState);
+      setConnectedSupabase(true);
+      setupRealtime();
+      return true;
+    } catch (err) { 
+      console.error('loadFromSupabase', err); 
+      alert('Erro ao carregar dados do Supabase. Veja console.'); 
+      return false; 
+    }
+  }
+
+  function setupRealtime() { 
+    if (!supabase) return; 
+    try { 
+      supabase.channel('public-all')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventories' }, () => { loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => { loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => { loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'weapons' }, () => { loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stands' }, () => { loadFromSupabase(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stand_weapons' }, () => { loadFromSupabase(); })
+        .subscribe(); 
+    } catch (err) { 
+      console.error('realtime setup', err);
+    } 
+  }
+
+  useEffect(() => { 
+    if (supabase) { 
+      console.log('Supabase client configurado');
+    } 
+  }, []);
+
+  const currentUser = state.currentUser;
+
+  const visibleInventories = Object.values(state.inventories).filter(inv => {
+    if (currentUser?.role === 'gm') return true;
+    if (!currentUser) return inv.ownerId == null;
+    return (inv.ownerId && inv.ownerId === currentUser.id) || inv.ownerId == null;
+  });
+
+  function handleLogin(user) { 
+    setState(prev => ({ ...prev, currentUser: user })); 
+  }
+
+  function logout() { 
+    setState(prev => ({ ...prev, currentUser: null })); 
+  }
+
+  function openInventory(invId) { 
+    setSelectedInventoryId(invId); 
+    setView('inventory'); 
+  }
+
+  function openShop() { 
+    setView('shop'); 
+  }
+
+  function updateState(updater) { 
+    setState(prev => { 
+      const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater }; 
+      return next; 
+    }); 
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-800 text-white">
+      <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
+        <h1 className="text-2xl font-bold">Inventários & Loja — Completo</h1>
+        <div className="flex items-center gap-3">
+          {supabase && !connectedSupabase && (
+            <button 
+              className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
               onClick={loadFromSupabase}
             >
               Conectar Supabase
@@ -1500,7 +1404,7 @@ useEffect(() => {
           ) : (
             <button 
               className="px-3 py-1 rounded bg-neutral-700 border border-neutral-600" 
-              onClick={()=>setLoginOpen(true)}
+              onClick={() => setLoginOpen(true)}
             >
               Login
             </button>
@@ -1521,7 +1425,7 @@ useEffect(() => {
                     <div className="mt-3 flex gap-2">
                       <button 
                         className="px-3 py-1 rounded bg-neutral-600 border border-neutral-600" 
-                        onClick={()=>openInventory(inv.id)}
+                        onClick={() => openInventory(inv.id)}
                       >
                         Abrir
                       </button>
@@ -1554,52 +1458,27 @@ useEffect(() => {
             currentUser={currentUser}
             state={state}
             updateState={updateState}
-            onBack={()=>setView('menu')}
+            onBack={() => setView('menu')}
             connectedSupabase={connectedSupabase}
             loadFromSupabase={loadFromSupabase}
           />
         )}
 
         {view === 'shop' && (
-          <ShopView
-            shop={state.shop}
-            weapons={state.weapons}
-            currentUser={currentUser}
-            state={state}
-            updateState={updateState}
-            onBack={()=>setView('menu')}
-            connectedSupabase={connectedSupabase}
-            createWeaponSupabase={createWeaponSupabase}
-            loadFromSupabase={loadFromSupabase}
-          />
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Loja</h2>
+            <BackButton onClick={() => setView('menu')} />
+            <p className="text-neutral-300">Implementação da loja em progresso...</p>
+          </div>
         )}
+
+        <LoginModal 
+          open={loginOpen} 
+          onClose={() => setLoginOpen(false)} 
+          onLogin={handleLogin} 
+          users={state.users} 
+        />
       </main>
-
-      <LoginModal 
-        open={loginOpen} 
-        onClose={()=>setLoginOpen(false)} 
-        onLogin={handleLogin} 
-        users={state.users} 
-      />
     </div>
   );
-}
-
- return (
-    <div>
-      {loading && <p>Carregando dados...</p>}
-      <Inventory inventories={inventories} />
-      <Shop categories={categories} items={items} weapons={weapons} />
-    </div>
-  );
-}
-
-// 5️⃣ Função utilitária shuffleArray → fora da função App
-function shuffleArray(arr) { 
-  const a = [...arr]; 
-  for (let i = a.length - 1; i > 0; i--) { 
-    const j = Math.floor(Math.random() * (i + 1)); 
-    [a[i], a[j]] = [a[j], a[i]]; 
-  } 
-  return a; 
 }
