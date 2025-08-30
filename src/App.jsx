@@ -1232,42 +1232,7 @@ export default function App() {
     return false;
   }
 }
-
-      const shop = { 
-        stands: (stands || []).map(s => ({ 
-          id: s.id, 
-          name: s.name, 
-          slots: s.slots, 
-          weaponIds: [] 
-        })) 
-      };
-
-      (stand_weapons || []).forEach(sw => {
-        const st = shop.stands.find(s => s.id === sw.stand_id);
-        if (st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
-      });
-
-      try {
-      // update state safely preserving prev.currentUser
-      setState(prev => ({
-        ...prev,
-        users: users || prev.users || [],
-        inventories: invMap,
-        shop,
-        weapons: weaponsMap
-      }));
-      setConnectedSupabase(true);
-      setupRealtime();
-      return true;
-    } catch (err) { 
-      console.error('loadFromSupabase', err); 
-      alert('Erro ao carregar dados do Supabase. Veja console.'); 
-      return false; 
-    } catch (err) {
-       console.error("Erro em load:", err);
-    }
-
-  function setupRealtime() { 
+function setupRealtime() { 
     if (!supabase) return; 
     try { 
       supabase.channel('public-all')
@@ -1281,7 +1246,6 @@ export default function App() {
     } catch (err) {
    console.error("Erro:", err);
 }
-  }
 
   const currentUser = state.currentUser;
 
