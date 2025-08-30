@@ -1232,6 +1232,8 @@ export default function App() {
     }
   }
 
+  }
+
   function setupRealtime() { 
     if (!supabase) return; 
     try { 
