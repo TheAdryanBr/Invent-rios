@@ -506,16 +506,31 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, han
   }
 
   async function renameFixedCategory(index, newName) {
+    // compute new fixed categories array first (use current inventory prop)
+    const fixed = [...(inventory.fixedCategories || [])];
+    fixed[index] = newName;
+
+    // update local state
     updateState(prev => {
       const inv = { ...prev.inventories[inventory.id] };
-      const fixed = [...(inv.fixedCategories || [])];
-      fixed[index] = newName;
       inv.fixedCategories = fixed;
       console.log('Updated Inventory:', inv);
       return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
     });
+
+    // persist to Supabase: save fixed_categories array on inventories table
     if (connectedSupabase) {
-      // e.g., await supabase.from('inventories').update({ fixed_categories: fixed }).eq('id', inventory.id);
+      try {
+        const { error } = await supabase.from('inventories').update({ fixed_categories: fixed }).eq('id', inventory.id);
+        if (error) {
+          console.error('Erro ao salvar fixed_categories no Supabase:', error);
+          alert('Erro ao renomear categoria fixa (persistência).');
+        } else {
+          console.log('fixed_categories atualizado no Supabase');
+        }
+      } catch (e) {
+        console.error('renameFixedCategory unexpected', e);
+      }
     }
   }
 
@@ -1189,7 +1204,13 @@ export default function App() {
       };
 
       console.log('Next State:', nextState);
-      setState(nextState);
+      setState(prev => ({
+        ...prev,
+        users: nextState.users,
+        inventories: nextState.inventories,
+        shop: nextState.shop,
+        weapons: nextState.weapons
+      }));
       setConnectedSupabase(true);
       setupRealtime();
       return true;
