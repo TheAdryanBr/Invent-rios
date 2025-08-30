@@ -506,31 +506,49 @@ function InventoryView({ inventory, currentUser, state, updateState, onBack, han
   }
 
   async function renameFixedCategory(index, newName) {
-    // compute new fixed categories array first (use current inventory prop)
-    const fixed = [...(inventory.fixedCategories || [])];
-    fixed[index] = newName;
+    try {
+      const fixed = [...(inventory.fixedCategories || [])];
+      fixed[index] = newName;
 
-    // update local state
-    updateState(prev => {
-      const inv = { ...prev.inventories[inventory.id] };
-      inv.fixedCategories = fixed;
-      console.log('Updated Inventory:', inv);
-      return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
-    });
+      // update local state
+      updateState(prev => {
+        const inv = { ...prev.inventories[inventory.id] };
+        inv.fixedCategories = fixed;
+        console.log('Updated Inventory:', inv);
+        return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
+      });
 
-    // persist to Supabase: save fixed_categories array on inventories table
-    if (connectedSupabase) {
-      try {
-        const { error } = await supabase.from('inventories').update({ fixed_categories: fixed }).eq('id', inventory.id);
-        if (error) {
-          console.error('Erro ao salvar fixed_categories no Supabase:', error);
-          alert('Erro ao renomear categoria fixa (persistência).');
-        } else {
-          console.log('fixed_categories atualizado no Supabase');
-        }
-      } catch (e) {
-        console.error('renameFixedCategory unexpected', e);
+      if (!connectedSupabase) {
+        return true;
       }
+
+      // Try updating common column names used: fixed_categories (snake_case) and fixedCategories (camelCase)
+      const attempts = [
+        { key: 'fixed_categories', payload: { fixed_categories: fixed } },
+        { key: 'fixedCategories', payload: { fixedCategories: fixed } }
+      ];
+
+      for (const a of attempts) {
+        try {
+          const res = await supabase.from('inventories').update(a.payload).eq('id', inventory.id).select();
+          if (res && !res.error) {
+            console.log('fixed categories saved with', a.key, res.data);
+            return true;
+          } else {
+            console.warn('Attempt to save fixed categories with', a.key, 'failed:', res.error);
+          }
+        } catch (e) {
+          console.warn('Attempt update failed for', a.key, e);
+        }
+      }
+
+      // if none succeeded
+      alert('Erro ao renomear categoria fixa (persistência). Veja console para detalhes.');
+      return false;
+    } catch (e) {
+      console.error('renameFixedCategory unexpected', e);
+      alert('Erro ao renomear categoria fixa (persistência). Veja console.');
+      return false;
     }
   }
 
@@ -1195,21 +1213,14 @@ export default function App() {
         if (st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
       });
 
-      const nextState = { 
-        currentUser: state.currentUser, 
-        users: users || [], 
-        inventories: invMap, 
-        shop, 
-        weapons: weaponsMap 
-      };
-
-      console.log('Next State:', nextState);
+      try {
+      // update state safely preserving prev.currentUser
       setState(prev => ({
         ...prev,
-        users: nextState.users,
-        inventories: nextState.inventories,
-        shop: nextState.shop,
-        weapons: nextState.weapons
+        users: users || prev.users || [],
+        inventories: invMap,
+        shop,
+        weapons: weaponsMap
       }));
       setConnectedSupabase(true);
       setupRealtime();
