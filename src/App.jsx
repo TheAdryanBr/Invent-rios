@@ -1097,107 +1097,141 @@ export default function App() {
   }
 
   async function loadFromSupabase() {
-    if (!supabase) {
-      alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
-      return false;
-    }
+  if (!supabase) {
+    alert('Supabase não configurado. Configure as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+    return false;
+  }
 
-    try {
-      console.log('Loading from Supabase...');
-      const [
-        { data: users },
-        { data: invs },
-        { data: cats },
-        { data: items },
-        { data: weapons },
-        { data: stands },
-        { data: stand_weapons }
-      ] = await Promise.all([
-        supabase.from('users').select('*'),
-        supabase.from('inventories').select('*'),
-        supabase.from('categories').select('*'),
-        supabase.from('items').select('*'),
-        supabase.from('weapons').select('*'),
-        supabase.from('stands').select('*'),
-        supabase.from('stand_weapons').select('*')
-      ]);
+  try {
+    console.log('Loading from Supabase...');
+    const [
+      { data: users },
+      { data: invs },
+      { data: cats },
+      { data: items },
+      { data: weapons },
+      { data: stands },
+      { data: stand_weapons }
+    ] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('inventories').select('*'),
+      supabase.from('categories').select('*'),
+      supabase.from('items').select('*'),
+      supabase.from('weapons').select('*'),
+      supabase.from('stands').select('*'),
+      supabase.from('stand_weapons').select('*')
+    ]);
 
-      console.log('Supabase Data:', { users, invs, cats, items, weapons, stands, stand_weapons });
+    console.log('Supabase Data:', { users, invs, cats, items, weapons, stands, stand_weapons });
 
-      const weaponsMap = {};
-      (weapons || []).forEach(w => { weaponsMap[w.id] = { ...w }; });
+    const weaponsMap = {};
+    (weapons || []).forEach(w => { weaponsMap[w.id] = { ...w }; });
 
-      const invMap = {};
-      (invs || []).forEach(inv => {
-        invMap[inv.id] = { 
-          id: inv.id, 
-          name: inv.name, 
-          ownerId: inv.owner_user_id, 
-          type: inv.type, 
-          wallpaper: inv.wallpaper, 
-          money: inv.money || 0, 
-          fixedCategories: inv.fixed_categories || ['Status','Mochila','Dinheiro','Anotações'], 
-          custom: {},
-          meta: { status: inv.status || '', notes: inv.notes || '' }
-        };
+    const invMap = {};
+    (invs || []).forEach(inv => {
+      invMap[inv.id] = { 
+        id: inv.id, 
+        name: inv.name, 
+        ownerId: inv.owner_user_id, 
+        type: inv.type, 
+        wallpaper: inv.wallpaper, 
+        money: inv.money || 0, 
+        fixedCategories: inv.fixed_categories || ['Status','Mochila','Dinheiro','Anotações'], 
+        custom: {},
+        meta: { status: inv.status || '', notes: inv.notes || '' }
+      };
+    });
+
+    Object.values(invMap).forEach(inv => {
+      inv.fixedCategories.forEach(fc => {
+        if (!inv.custom[fc]) inv.custom[fc] = [];
       });
+    });
 
-      Object.values(invMap).forEach(inv => {
-        inv.fixedCategories.forEach(fc => {
-          if (!inv.custom[fc]) inv.custom[fc] = [];
+    (cats || []).forEach(c => {
+      const inv = invMap[c.inventory_id];
+      if (!inv) {
+        console.warn('Category with no matching inventory:', c);
+        return;
+      }
+      const parent = c.parent_fixed || inv.fixedCategories[0] || 'Mochila';
+      if (!inv.custom[parent]) inv.custom[parent] = [];
+      const existingCat = inv.custom[parent].find(cc => cc.id === c.id);
+      if (!existingCat) {
+        inv.custom[parent].push({ id: c.id, name: c.name || 'Unnamed', items: [] });
+      }
+    });
+
+    (items || []).forEach(it => {
+      const cat = (cats || []).find(c => c.id === it.category_id);
+      if (!cat) {
+        console.warn('Item with no matching category:', it);
+        return;
+      }
+      const inv = invMap[cat.inventory_id];
+      if (!inv) {
+        console.warn('Item with no matching inventory:', it);
+        return;
+      }
+      const parent = cat.parent_fixed || inv.fixedCategories[0] || 'Mochila';
+      const catList = inv.custom[parent] || [];
+      const catObj = catList.find(cc => cc.id === cat.id);
+      if (catObj) {
+        catObj.items.push({ 
+          id: it.id, 
+          name: it.name || 'Unnamed Item', 
+          qty: it.qty || 1, 
+          desc: it.metadata?.description || '', 
+          type: it.type || 'item', 
+          metadata: it.metadata || {} 
         });
-      });
+      } else {
+        console.warn('Category not found for item during mapping:', cat, it);
+        inv.custom[parent] = inv.custom[parent] || [];
+        inv.custom[parent].push({ id: cat.id, name: cat.name || 'Unnamed', items: [{ 
+          id: it.id, 
+          name: it.name || 'Unnamed Item', 
+          qty: it.qty || 1, 
+          desc: it.metadata?.description || '', 
+          type: it.type || 'item', 
+          metadata: it.metadata || {} 
+        }] });
+      }
+    });
 
-      (cats || []).forEach(c => {
-        const inv = invMap[c.inventory_id];
-        if (!inv) {
-          console.warn('Category with no matching inventory:', c);
-          return;
-        }
-        const parent = c.parent_fixed || inv.fixedCategories[0] || 'Mochila';
-        if (!inv.custom[parent]) inv.custom[parent] = [];
-        const existingCat = inv.custom[parent].find(cc => cc.id === c.id);
-        if (!existingCat) {
-          inv.custom[parent].push({ id: c.id, name: c.name || 'Unnamed', items: [] });
-        }
-      });
+    const shop = { 
+      stands: (stands || []).map(s => ({ 
+        id: s.id, 
+        name: s.name, 
+        slots: s.slots, 
+        weaponIds: [] 
+      })) 
+    };
 
-      (items || []).forEach(it => {
-        const cat = (cats || []).find(c => c.id === it.category_id);
-        if (!cat) {
-          console.warn('Item with no matching category:', it);
-          return;
-        }
-        const inv = invMap[cat.inventory_id];
-        if (!inv) {
-          console.warn('Item with no matching inventory:', it);
-          return;
-        }
-        const parent = cat.parent_fixed || inv.fixedCategories[0] || 'Mochila';
-        const catList = inv.custom[parent] || [];
-        const catObj = catList.find(cc => cc.id === cat.id);
-        if (catObj) {
-          catObj.items.push({ 
-            id: it.id, 
-            name: it.name || 'Unnamed Item', 
-            qty: it.qty || 1, 
-            desc: it.metadata?.description || '', 
-            type: it.type || 'item', 
-            metadata: it.metadata || {} 
-          });
-        } else {
-          console.warn('Category not found for item during mapping:', cat, it);
-          inv.custom[parent] = inv.custom[parent] || [];
-          inv.custom[parent].push({ id: cat.id, name: cat.name || 'Unnamed', items: [{ 
-            id: it.id, 
-            name: it.name || 'Unnamed Item', 
-            qty: it.qty || 1, 
-            desc: it.metadata?.description || '', 
-            type: it.type || 'item', 
-            metadata: it.metadata || {} 
-          }] });
-        }
-      });
+    (stand_weapons || []).forEach(sw => {
+      const st = shop.stands.find(s => s.id === sw.stand_id);
+      if (st && !st.weaponIds.includes(sw.weapon_id)) st.weaponIds.push(sw.weapon_id);
+    });
+
+    const nextState = { 
+      currentUser: state.currentUser, 
+      users: users || [], 
+      inventories: invMap, 
+      shop, 
+      weapons: weaponsMap 
+    };
+
+    console.log('Next State:', nextState);
+    setState(nextState);
+    setConnectedSupabase(true);
+    setupRealtime();
+    return true;
+  } catch (err) {
+    console.error('Erro ao carregar dados do Supabase:', err);
+    alert('Erro ao carregar dados do Supabase. Veja console.');
+    return false;
+  }
+}
 
       const shop = { 
         stands: (stands || []).map(s => ({ 
