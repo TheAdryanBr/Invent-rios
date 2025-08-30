@@ -1355,9 +1355,6 @@ function setupRealtime() {
           }
         }
         if (!targetInvId) return prev; // item not found anywhere
-} catch (err) {
-   console.error("Erro:", err);
-}
         const inv = { ...prev.inventories[targetInvId] };
         inv.custom = { ...(inv.custom || {}) };
         const fixed = inv.fixedCategories?.[0] || Object.keys(inv.custom || {})[0] || 'Mochila';
@@ -1491,4 +1488,6 @@ function setupRealtime() {
   );
 }
 
+
+}
 
