@@ -1249,62 +1249,60 @@ export default function App() {
     }); 
   }
 
-  function handleTransfer(fromInvId, fromCatId, itemId, toInvId, toCatId) {
-    const fromInv = state.inventories[fromInvId];
-    const toInv = state.inventories[toInvId];
-    if (!fromInv || !toInv) return;
+  async function handleTransfer(fromInvId, fromCatId, itemId, toInvId, toCatId) {
+  const fromInv = state.inventories[fromInvId];
+  const toInv = state.inventories[toInvId];
+  if (!fromInv || !toInv) return;
 
-    const fromCat = (fromInv.custom?.[fromInv.fixedCategories?.[0]] || []).find(c => c.id === fromCatId);
-    const toCat = (toInv.custom?.[toInv.fixedCategories?.[0]] || []).find(c => c.id === toCatId);
-    if (!fromCat || !toCat) return;
+  const fromCat = (fromInv.custom?.[fromInv.fixedCategories?.[0]] || []).find(c => c.id === fromCatId);
+  const toCat = (toInv.custom?.[toInv.fixedCategories?.[0]] || []).find(c => c.id === toCatId);
+  if (!fromCat || !toCat) return;
 
-    const item = fromCat.items.find(i => i.id === itemId);
-    if (!item) return;
+  const item = fromCat.items.find(i => i.id === itemId);
+  if (!item) return;
 
-    updateState(prev => {
-      const newState = { ...prev };
-      const updatedFromInv = { ...newState.inventories[fromInvId] };
-      const updatedToInv = { ...newState.inventories[toInvId] };
+  // --- Atualiza o estado local ---
+  updateState(prev => {
+    const newState = { ...prev };
+    const updatedFromInv = { ...newState.inventories[fromInvId] };
+    const updatedToInv = { ...newState.inventories[toInvId] };
 
-      updatedFromInv.custom = { ...(updatedFromInv.custom || {}) };
-      updatedToInv.custom = { ...(updatedToInv.custom || {}) };
+    updatedFromInv.custom = { ...(updatedFromInv.custom || {}) };
+    updatedToInv.custom = { ...(updatedToInv.custom || {}) };
 
-      const fromList = updatedFromInv.custom[fromInv.fixedCategories?.[0]] || [];
-      const toList = updatedToInv.custom[toInv.fixedCategories?.[0]] || [];
+    const fromList = updatedFromInv.custom[fromInv.fixedCategories?.[0]] || [];
+    const toList = updatedToInv.custom[toInv.fixedCategories?.[0]] || [];
 
-      updatedFromInv.custom[fromInv.fixedCategories?.[0]] = fromList.map(c => 
-        c.id === fromCatId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
-      );
-      updatedToInv.custom[toInv.fixedCategories?.[0]] = toList.map(c => 
-        c.id === toCatId ? { ...c, items: [...c.items, item] } : c
-      );
+    updatedFromInv.custom[fromInv.fixedCategories?.[0]] = fromList.map(c => 
+      c.id === fromCatId ? { ...c, items: c.items.filter(i => i.id !== itemId) } : c
+    );
+    updatedToInv.custom[toInv.fixedCategories?.[0]] = toList.map(c => 
+      c.id === toCatId ? { ...c, items: [...c.items, item] } : c
+    );
 
-      newState.inventories = { ...newState.inventories, [fromInvId]: updatedFromInv, [toInvId]: updatedToInv };
-      console.log('Transfer Updated State:', newState);
-      return newState;
-    });
+    newState.inventories = { ...newState.inventories, [fromInvId]: updatedFromInv, [toInvId]: updatedToInv };
+    return newState;
+  });
 
-    if (connectedSupabase) {
-      supabase.from('items').update({ category_id: toCatId, inventory_id: toInvId }).eq('id', itemId);
+  // --- Atualiza no Supabase também ---
+  if (connectedSupabase) {
+    try {
+      // Atualiza a tabela items (relação normalizada)
+      const { error } = await supabase
+        .from('items')
+        .update({ category_id: toCatId, inventory_id: toInvId })
+        .eq('id', itemId);
+
+      if (error) {
+        console.error("Erro ao mover item no Supabase:", error);
+      } else {
+        console.log("Item movido no Supabase com sucesso!");
+      }
+    } catch (err) {
+      console.error("handleTransfer unexpected:", err);
     }
   }
-
-  function handleEditSave(updatedItem) {
-    updateState(prev => {
-      const inv = { ...prev.inventories[inventory.id] };
-      inv.custom = { ...(inv.custom || {}) };
-      inv.custom[selectedFixed] = (inv.custom[selectedFixed] || []).map(c => ({
-        ...c,
-        items: c.items.map(it => it.id === updatedItem.id ? updatedItem : it)
-      }));
-      console.log('Edited Inventory:', inv);
-      return { ...prev, inventories: { ...prev.inventories, [inventory.id]: inv } };
-    });
-
-    if (connectedSupabase) {
-      supabase.from('items').update(updatedItem).eq('id', updatedItem.id);
-    }
-  }
+}
 
   return (
     <div className="min-h-screen bg-neutral-800 text-white">
