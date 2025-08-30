@@ -1244,9 +1244,9 @@ export default function App() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stands' }, () => { loadFromSupabase(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'stand_weapons' }, () => { loadFromSupabase(); })
         .subscribe(); 
-    } catch (err) { 
-      console.error('realtime setup', err);
-    } 
+    } catch (err) {
+   console.error("Erro:", err);
+}
   }
 
   const currentUser = state.currentUser;
@@ -1332,8 +1332,8 @@ export default function App() {
         console.log("Item movido no Supabase com sucesso!");
       }
     } catch (err) {
-      console.error("handleTransfer unexpected:", err);
-    }
+   console.error("Erro:", err);
+}
   }
 }
 
@@ -1357,7 +1357,9 @@ export default function App() {
           }
         }
         if (!targetInvId) return prev; // item not found anywhere
-
+} catch (err) {
+   console.error("Erro:", err);
+}
         const inv = { ...prev.inventories[targetInvId] };
         inv.custom = { ...(inv.custom || {}) };
         const fixed = inv.fixedCategories?.[0] || Object.keys(inv.custom || {})[0] || 'Mochila';
