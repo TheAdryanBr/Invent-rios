@@ -1232,10 +1232,11 @@ export default function App() {
     setState(prev => ({ ...prev, currentUser: null })); 
   }
 
-  function openInventory(invId) { 
-    setSelectedInventoryId(invId); 
-    setView('inventory'); 
-  }
+  function openInventory(invId){ 
+  console.log("Abrindo inventário:", invId, state.inventories);
+  setSelectedInventoryId(invId); 
+  setView('inventory'); 
+}
 
   function openShop() { 
     setView('shop'); 
