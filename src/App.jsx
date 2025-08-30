@@ -225,7 +225,7 @@ function ShopView({ state, onBack }) {
   );
 }
 
-function InventoryView({ inventory, currentUser, state, updateState, onBack, connectedSupabase, loadFromSupabase }) {
+function InventoryView({ inventory, currentUser, state, updateState, onBack, handleTransfer, handleEditSave, connectedSupabase, loadFromSupabase }) {
   const [selectedFixed, setSelectedFixed] = useState(inventory.fixedCategories?.[0] || 'Mochila');
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -1384,8 +1384,6 @@ export default function App() {
     onBack={() => setView('menu')}
     connectedSupabase={connectedSupabase}
     loadFromSupabase={loadFromSupabase}
-
-    // 👇 Adicionar aqui
     handleTransfer={handleTransfer}
     handleEditSave={handleEditSave}
   />
