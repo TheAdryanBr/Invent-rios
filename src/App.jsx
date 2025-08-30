@@ -1304,6 +1304,57 @@ export default function App() {
   }
 }
 
+
+  // Edit/save item handler that updates local state and persists to Supabase
+  async function editSaveInApp(updatedItem, invId) {
+    try {
+      // Update local state first for immediate UI feedback
+      updateState(prev => {
+        // find inventory id (use invId if provided, else search)
+        let targetInvId = invId;
+        if (!targetInvId) {
+          // find which inventory contains the item
+          for (const [iid, inv] of Object.entries(prev.inventories || {})) {
+            const listKeys = Object.keys(inv.custom || {});
+            for (const k of listKeys) {
+              const cat = (inv.custom[k] || []).find(c => (c.items || []).some(it => it.id === updatedItem.id));
+              if (cat) { targetInvId = iid; break; }
+            }
+            if (targetInvId) break;
+          }
+        }
+        if (!targetInvId) return prev; // item not found anywhere
+
+        const inv = { ...prev.inventories[targetInvId] };
+        inv.custom = { ...(inv.custom || {}) };
+        const fixed = inv.fixedCategories?.[0] || Object.keys(inv.custom || {})[0] || 'Mochila';
+        inv.custom[fixed] = (inv.custom[fixed] || []).map(c => ({
+          ...c,
+          items: (c.items || []).map(it => it.id === updatedItem.id ? { ...it, ...updatedItem } : it)
+        }));
+        return { ...prev, inventories: { ...prev.inventories, [targetInvId]: inv } };
+      });
+
+      // Persist to Supabase if connected
+      if (connectedSupabase) {
+        const payload = {
+          name: updatedItem.name,
+          qty: updatedItem.qty,
+          metadata: updatedItem.metadata || updatedItem,
+          type: updatedItem.type || 'item'
+        };
+        const { error } = await supabase.from('items').update(payload).eq('id', updatedItem.id);
+        if (error) {
+          console.error('Erro ao salvar item no Supabase:', error);
+        } else {
+          console.log('Item salvo no Supabase:', updatedItem.id);
+        }
+      }
+    } catch (err) {
+      console.error('editSaveInApp unexpected', err);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-neutral-800 text-white">
       <header className="p-4 bg-neutral-900 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-0 shadow-sm border-b border-neutral-700">
@@ -1385,7 +1436,7 @@ export default function App() {
     connectedSupabase={connectedSupabase}
     loadFromSupabase={loadFromSupabase}
     handleTransfer={handleTransfer}
-    handleEditSave={handleEditSave}
+    handleEditSave={(item) => editSaveInApp(item, selectedInventoryId)}
   />
 )}
 
@@ -1406,3 +1457,4 @@ export default function App() {
     </div>
   );
 }
+
