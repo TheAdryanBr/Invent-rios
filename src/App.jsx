@@ -1377,14 +1377,15 @@ export default function App() {
 
         {view === 'inventory' && selectedInventoryId && (
           <InventoryView
-            inventory={state.inventories[selectedInventoryId]}
-            currentUser={currentUser}
-            state={state}
-            updateState={updateState}
-            onBack={() => setView('menu')}
-            connectedSupabase={connectedSupabase}
-            loadFromSupabase={loadFromSupabase}
-          />
+  inventory={state.inventories[selectedInventoryId]}
+  currentUser={currentUser}
+  state={state}
+  updateState={updateState}
+  onBack={()=>setView('menu')}
+  connectedSupabase={connectedSupabase}
+  loadFromSupabase={loadFromSupabase}
+  handleTransfer={handleTransfer}   // 🔥 agora já salva no Supabase
+/>
         )}
 
         {view === 'shop' && (
