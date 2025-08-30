@@ -1376,17 +1376,20 @@ export default function App() {
         )}
 
         {view === 'inventory' && selectedInventoryId && (
-          <InventoryView
-  inventory={state.inventories[selectedInventoryId]}
-  currentUser={currentUser}
-  state={state}
-  updateState={updateState}
-  onBack={()=>setView('menu')}
-  connectedSupabase={connectedSupabase}
-  loadFromSupabase={loadFromSupabase}
-  handleTransfer={handleTransfer}   // 🔥 agora já salva no Supabase
-/>
-        )}
+  <InventoryView
+    inventory={state.inventories[selectedInventoryId]}
+    currentUser={currentUser}
+    state={state}
+    updateState={updateState}
+    onBack={() => setView('menu')}
+    connectedSupabase={connectedSupabase}
+    loadFromSupabase={loadFromSupabase}
+
+    // 👇 Adicionar aqui
+    handleTransfer={handleTransfer}
+    handleEditSave={handleEditSave}
+  />
+)}
 
         {view === 'shop' && (
           <ShopView
