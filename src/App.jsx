@@ -1229,9 +1229,9 @@ export default function App() {
       console.error('loadFromSupabase', err); 
       alert('Erro ao carregar dados do Supabase. Veja console.'); 
       return false; 
+    } catch (err) {
+       console.error("Erro em load:", err);
     }
-  }
-
 
   function setupRealtime() { 
     if (!supabase) return; 
